@@ -1,0 +1,6 @@
+{
+  "name": "Studio Denuli",
+  "description": "Profesionální multitrack DAW hudební studio, video editor a AI generátor písní.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
