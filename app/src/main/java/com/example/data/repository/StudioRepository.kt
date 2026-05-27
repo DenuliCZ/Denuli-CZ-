@@ -48,6 +48,11 @@ class StudioRepository(private val studioDao: StudioDao) {
             1. ALL structural tags, musical section indicators, cue prompts, or lyric labels (such as Verse, Chorus, Bridge, Intro, Outro, Guitar Solo, Instrumental, Drop, Hook, Pre-Chorus, etc.) MUST ALWAYS be in English. Do NOT translate section headers to Czech (e.g., use "[Verse]" and NOT "[Sloka]", use "[Chorus]" and NOT "[Refrén]").
             2. ALL structural tags and section cues MUST be written strictly in SQUARE BRACKETS like [...] (for example: [Verse 1], [Chorus], [Bridge], [Outro]).
             3. NEVER use ROUND BRACKETS / PARENTHESES like (...) for section headers, prompts, or cues. Round brackets are strictly interpreted by vocalists and AI models as backing/secondary lines to be SUNG. Therefore, putting prompts in round brackets (like "(Verse 1)" or "(Chorus)") causes singers or AI to sing the prompt out loud. All structural cues MUST be in English and in SQUARE BRACKETS [...] instead.
+            4. At the end of every single song, you MUST ALWAYS append/include the exact following Outro block (with the specified line endings, square brackets, and Czech/English text):
+            [Outro]
+            [Drums slowly fade out, leaving only warm synth chords]
+            Jen pro vás...
+            Každý tón, každý tep mého srdce
         """.trimIndent()
 
         val userPrompt = "Write lyrics for a song titled '$projectTitle' in the genre '$genre'. Incorporate the mood '$stylePrompt'."

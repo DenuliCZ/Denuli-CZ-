@@ -40,21 +40,10 @@ private val LightColorScheme =
 
 @Composable
 fun MyApplicationTheme(
-  darkTheme: Boolean = isSystemInDarkTheme(),
-  // Dynamic color is available on Android 12+
-  dynamicColor: Boolean = true,
+  darkTheme: Boolean = true, // Immersive premium dark studio theme is highly recommended
+  dynamicColor: Boolean = false, // Disable dynamic colors to protect neon branding from wallpaper overrides
   content: @Composable () -> Unit,
 ) {
-  val colorScheme =
-    when {
-      dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
-        val context = LocalContext.current
-        if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
-      }
-
-      darkTheme -> DarkColorScheme
-      else -> LightColorScheme
-    }
-
+  val colorScheme = DarkColorScheme // Exclusively use our custom midnight studio colors
   MaterialTheme(colorScheme = colorScheme, typography = Typography, content = content)
 }

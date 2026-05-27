@@ -480,7 +480,7 @@ class StudioViewModel(private val repository: StudioRepository) : ViewModel() {
                 title = "Můj první hudební projekt 🎵",
                 genre = "Synthwave",
                 bpm = 125,
-                lyrics = "[Verse 1]\nSvětla neonů svítí v noci,\nmáme rytmus ve své moci.\n\n[Chorus]\nBěžíme tmou, hudba v nás teče,\ntento tón už neuteče!",
+                lyrics = "[Verse 1]\nSvětla neonů svítí v noci,\nmáme rytmus ve své moci.\n\n[Chorus]\nBěžíme tmou, hudba v nás teče,\ntento tón už neuteče!\n\n[Outro]\n[Drums slowly fade out, leaving only warm synth chords]\nJen pro vás...\nKaždý tón, každý tep mého srdce",
                 stylePrompt = "energetic synthwave, 80s arcade, analog drum machine",
                 excludedPrompt = "slow, sad, acoustic drums, noise",
                 vocalPrompt = "clear synth lead, robotic vocal tune",
@@ -555,18 +555,22 @@ class StudioViewModel(private val repository: StudioRepository) : ViewModel() {
         _activeProject.value?.let {
             saveProjectFieldsSilently(it.copy(vocalGain = vol))
         }
+        updatePlayerVolume()
     }
 
     fun setSynthVolume(vol: Float) {
         _synthVolume.value = vol
+        updatePlayerVolume()
     }
 
     fun setDrumsVolume(vol: Float) {
         _drumsVolume.value = vol
+        updatePlayerVolume()
     }
 
     fun setNatureVolume(vol: Float) {
         _natureVolume.value = vol
+        updatePlayerVolume()
     }
 
     fun selectProject(project: Project) {
@@ -590,7 +594,7 @@ class StudioViewModel(private val repository: StudioRepository) : ViewModel() {
                 title = "Projekt $num",
                 genre = "Pop",
                 bpm = 120,
-                lyrics = "[Verse]\nKrásný den začíná s melodií...\n\n[Chorus]\nZpívám si svou vlastní píseň, odháním z hlavy tíseň!"
+                lyrics = "[Verse]\nKrásný den začíná s melodií...\n\n[Chorus]\nZpívám si svou vlastní píseň, odháním z hlavy tíseň!\n\n[Outro]\n[Drums slowly fade out, leaving only warm synth chords]\nJen pro vás...\nKaždý tón, každý tep mého srdce"
             )
             val id = repository.saveProject(p)
             val savedProject = p.copy(id = id.toInt())
@@ -663,17 +667,99 @@ class StudioViewModel(private val repository: StudioRepository) : ViewModel() {
     }
 
     // Playback Simulators
+    private var mediaPlayer: android.media.MediaPlayer? = null
+
+    fun togglePlay(context: Context) {
+        _isPlaying.value = !_isPlaying.value
+        if (_isPlaying.value) {
+            _isRecording.value = false
+            startPlayingAudio(context)
+        } else {
+            stopPlayingAudio()
+        }
+    }
+
     fun togglePlay() {
         _isPlaying.value = !_isPlaying.value
         if (_isPlaying.value) {
             _isRecording.value = false
+        } else {
+            stopPlayingAudio()
         }
+    }
+
+    private fun startPlayingAudio(context: Context) {
+        val audioUrls = listOf(
+            "https://ccmixter.org/content/snowflake/snowflake_-_I_ll_Be_Right_Here.mp3",
+            "https://ccmixter.org/content/admiralbob77/admiralbob77_-_Two_Left_Feet.mp3",
+            "https://ccmixter.org/content/snowflake/snowflake_-_Stay_with_Me.mp3",
+            "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3"
+        )
+        tryPlayUrl(context, audioUrls, 0)
+    }
+
+    private fun tryPlayUrl(context: Context, urls: List<String>, index: Int) {
+        if (index >= urls.size) {
+            // All web URLs failed, notify user
+            _isPlaying.value = false
+            return
+        }
+        try {
+            mediaPlayer?.release()
+            mediaPlayer = android.media.MediaPlayer().apply {
+                val headers = mapOf("User-Agent" to "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Mobile Safari/537.36")
+                setDataSource(context, android.net.Uri.parse(urls[index]), headers)
+                setOnPreparedListener { mp ->
+                    mp.isLooping = true
+                    updatePlayerVolume()
+                    mp.start()
+                }
+                setOnErrorListener { _, _, _ ->
+                    // Recover gracefully by trying next URL
+                    tryPlayUrl(context, urls, index + 1)
+                    true
+                }
+                prepareAsync()
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+            tryPlayUrl(context, urls, index + 1)
+        }
+    }
+
+    fun stopPlayingAudio() {
+        try {
+            mediaPlayer?.let {
+                if (it.isPlaying) {
+                    it.stop()
+                }
+                it.release()
+            }
+            mediaPlayer = null
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
+    private fun updatePlayerVolume() {
+        val master = ((_vocalVolume.value + _synthVolume.value + _drumsVolume.value + _natureVolume.value) / 4f).coerceIn(0f, 1f)
+        try {
+            mediaPlayer?.setVolume(master, master)
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
+    override fun onCleared() {
+        stopPlayingAudio()
+        super.onCleared()
     }
 
     fun toggleRecord() {
         _isRecording.value = !_isRecording.value
         if (_isRecording.value) {
             _isPlaying.value = false
+            stopPlayingAudio()
             _playbackProgress.value = 0f
         }
     }

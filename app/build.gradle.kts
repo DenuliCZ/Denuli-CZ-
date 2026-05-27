@@ -14,8 +14,8 @@ android {
     applicationId = "com.studiodenuli.spark"
     minSdk = 26
     targetSdk = 35
-    versionCode = 8
-    versionName = "8.0"
+    versionCode = 16
+    versionName = "16.0"
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
   }

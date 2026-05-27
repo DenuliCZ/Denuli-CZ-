@@ -935,6 +935,7 @@ fun AiStyleBox(viewModel: StudioViewModel, lang: String) {
 // --- TAB 1: STUDIO SCREEN ---
 @Composable
 fun StudioTabScreen(viewModel: StudioViewModel) {
+    val context = LocalContext.current
     val lang by viewModel.selectedLanguage.collectAsStateWithLifecycle()
     val activeProject by viewModel.activeProject.collectAsStateWithLifecycle()
     val projectsList by viewModel.projectsList.collectAsStateWithLifecycle()
@@ -1139,7 +1140,7 @@ fun StudioTabScreen(viewModel: StudioViewModel) {
                                 }
 
                                 Button(
-                                    onClick = { viewModel.togglePlay() },
+                                    onClick = { viewModel.togglePlay(context) },
                                     colors = ButtonDefaults.buttonColors(
                                         containerColor = if (isPlaying) Color(0xFF0B3B2B) else Color(0xFF142F20)
                                     ),
@@ -1604,7 +1605,9 @@ fun StudioTabScreen(viewModel: StudioViewModel) {
                     .testTag("advanced_export_dialog")
             ) {
                 Column(
-                    modifier = Modifier.padding(18.dp),
+                    modifier = Modifier
+                        .padding(18.dp)
+                        .verticalScroll(rememberScrollState()),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     // Header
@@ -1650,25 +1653,63 @@ fun StudioTabScreen(viewModel: StudioViewModel) {
                             "MP3" to (if (lang == "CS") "MP3 (320 kbps) pro hudbu - rychlé sdílení" else "MP3 (320 kbps) Music - rapid sharing"),
                             "MP4_720" to (if (lang == "CS") "MP4 HD (720p) pro rychlé videoklipy" else "MP4 HD (720p) Video clips")
                         ).forEach { (formatKey, label) ->
-                            Row(
+                            val isSelected = selectedFormat == formatKey
+                            Column(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .clip(RoundedCornerShape(8.dp))
-                                    .background(if (selectedFormat == formatKey) accent.copy(alpha = 0.15f) else Color.Transparent)
+                                    .background(if (isSelected) accent.copy(alpha = 0.15f) else Color.Transparent)
                                     .border(
                                         1.dp,
-                                        if (selectedFormat == formatKey) accent else cardBorder.copy(alpha = 0.3f),
+                                        if (isSelected) accent else cardBorder.copy(alpha = 0.3f),
                                         RoundedCornerShape(8.dp)
                                     )
                                     .clickable { selectedFormat = formatKey }
-                                    .padding(12.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                    .padding(12.dp)
                             ) {
-                                Text(text = if (selectedFormat == formatKey) "🔘" else "⚪", fontSize = 16.sp)
-                                Column {
-                                    Text(text = if (formatKey == "MP4_720") "MP4 (720p)" else formatKey, color = textCol, fontWeight = FontWeight.Bold, fontSize = 12.sp)
-                                    Text(text = label, color = if (isDarkMode) Color.LightGray else Color.DarkGray, fontSize = 10.sp)
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Text(text = if (isSelected) "🔘" else "⚪", fontSize = 16.sp)
+                                    Column {
+                                        Text(text = if (formatKey == "MP4_720") "MP4 (720p)" else formatKey, color = textCol, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                                        Text(text = label, color = if (isDarkMode) Color.LightGray else Color.DarkGray, fontSize = 10.sp)
+                                    }
+                                }
+                                if (isSelected) {
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    Button(
+                                        onClick = {
+                                            isExporting = true
+                                            exportProgress = 0f
+                                            estimatedTimeSec = if (formatKey.startsWith("MP4")) 14 else 6
+                                            try {
+                                                val serviceIntent = android.content.Intent(context, com.example.service.ExportForegroundService::class.java).apply {
+                                                    putExtra(com.example.service.ExportForegroundService.EXTRA_FORMAT, formatKey)
+                                                    putExtra(com.example.service.ExportForegroundService.EXTRA_DURATION_SEC, estimatedTimeSec)
+                                                }
+                                                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                                                    context.startForegroundService(serviceIntent)
+                                                } else {
+                                                    context.startService(serviceIntent)
+                                                }
+                                            } catch (e: Exception) {
+                                                e.printStackTrace()
+                                            }
+                                        },
+                                        colors = ButtonDefaults.buttonColors(containerColor = accent),
+                                        shape = RoundedCornerShape(8.dp),
+                                        modifier = Modifier.fillMaxWidth().height(36.dp)
+                                    ) {
+                                        Text(
+                                            text = if (lang == "CS") "Exportovat a stáhnout zdarma 🚀" else "Export and Download Free 🚀",
+                                            color = if (isDarkMode) Color.Black else Color.White,
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 11.sp
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -1699,28 +1740,78 @@ fun StudioTabScreen(viewModel: StudioViewModel) {
                             "FLAC" to (if (lang == "CS") "FLAC (Lossless, 24-bit/48kHz) bezztrátová kvalita" else "FLAC (Lossless, 24-bit/48kHz) high fidelity"),
                             "MP4_4K" to (if (lang == "CS") "MP4 UHD (4K / Full HD 1080p) pro profesionální klipy" else "MP4 UHD (4K / Full HD 1080p) cinema grade")
                         ).forEach { (formatKey, label) ->
-                            Row(
+                            val isSelected = selectedFormat == formatKey
+                            val selectIsPremiumFormat = true
+                            Column(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .clip(RoundedCornerShape(8.dp))
-                                    .background(if (selectedFormat == formatKey) accent.copy(alpha = 0.15f) else Color.Transparent)
+                                    .background(if (isSelected) accent.copy(alpha = 0.15f) else Color.Transparent)
                                     .border(
                                         1.dp,
-                                        if (selectedFormat == formatKey) accent else cardBorder.copy(alpha = 0.3f),
+                                        if (isSelected) accent else cardBorder.copy(alpha = 0.3f),
                                         RoundedCornerShape(8.dp)
                                     )
                                     .clickable { selectedFormat = formatKey }
-                                    .padding(12.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                    .padding(12.dp)
                             ) {
-                                Text(text = if (selectedFormat == formatKey) "🔘" else "⚪", fontSize = 16.sp)
-                                Column {
-                                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                                        Text(text = if (formatKey == "MP4_4K") "MP4 (1080p / 4K)" else formatKey, color = textCol, fontWeight = FontWeight.Bold, fontSize = 12.sp)
-                                        Icon(Icons.Default.Lock, contentDescription = "Premium lock", tint = if (isDarkMode) Color(0xFFCC66FF) else Color(0xFF53318F), modifier = Modifier.size(12.dp))
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Text(text = if (isSelected) "🔘" else "⚪", fontSize = 16.sp)
+                                    Column {
+                                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                            Text(text = if (formatKey == "MP4_4K") "MP4 (1080p / 4K)" else formatKey, color = textCol, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                                            Icon(Icons.Default.Lock, contentDescription = "Premium lock", tint = if (isDarkMode) Color(0xFFCC66FF) else Color(0xFF53318F), modifier = Modifier.size(12.dp))
+                                        }
+                                        Text(text = label, color = if (isDarkMode) Color.LightGray else Color.DarkGray, fontSize = 10.sp)
                                     }
-                                    Text(text = label, color = if (isDarkMode) Color.LightGray else Color.DarkGray, fontSize = 10.sp)
+                                }
+                                if (isSelected) {
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    Button(
+                                        onClick = {
+                                            if (!isPremium) {
+                                                viewModel.setShowPaywallDialog(true)
+                                                Toast.makeText(context, if (lang == "CS") "Export ve vybrané kvalitě vyžaduje Prémium!" else "Selected format is a Premium feature!", Toast.LENGTH_SHORT).show()
+                                            } else {
+                                                isExporting = true
+                                                exportProgress = 0f
+                                                estimatedTimeSec = 14
+                                                try {
+                                                    val serviceIntent = android.content.Intent(context, com.example.service.ExportForegroundService::class.java).apply {
+                                                        putExtra(com.example.service.ExportForegroundService.EXTRA_FORMAT, formatKey)
+                                                        putExtra(com.example.service.ExportForegroundService.EXTRA_DURATION_SEC, estimatedTimeSec)
+                                                    }
+                                                    if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                                                        context.startForegroundService(serviceIntent)
+                                                    } else {
+                                                        context.startService(serviceIntent)
+                                                    }
+                                                } catch (e: Exception) {
+                                                    e.printStackTrace()
+                                                }
+                                            }
+                                        },
+                                        colors = ButtonDefaults.buttonColors(
+                                            containerColor = if (!isPremium) Color.Gray else accent
+                                        ),
+                                        shape = RoundedCornerShape(8.dp),
+                                        modifier = Modifier.fillMaxWidth().height(36.dp)
+                                    ) {
+                                        Text(
+                                            text = if (!isPremium) {
+                                                if (lang == "CS") "Koupit Premium pro export 👑" else "Buy Premium to Unlock 👑"
+                                            } else {
+                                                if (lang == "CS") "Exportovat s Premium 🚀" else "Export with Premium 🚀"
+                                            },
+                                            color = if (!isPremium) Color.White else (if (isDarkMode) Color.Black else Color.White),
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 11.sp
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -1840,7 +1931,8 @@ fun StudioTabScreen(viewModel: StudioViewModel) {
                         Spacer(modifier = Modifier.height(14.dp))
 
                         LaunchedEffect(isExporting) {
-                            while (exportProgress < 1.0f) {
+                            if (isExporting) {
+                                while (exportProgress < 1.0f) {
                                 delay(600)
                                 exportProgress += 0.1f
                             }
@@ -1865,6 +1957,7 @@ fun StudioTabScreen(viewModel: StudioViewModel) {
                             }
 
                             Toast.makeText(context, message, Toast.LENGTH_LONG).show()
+                            }
                         }
                     }
                 }
@@ -2132,6 +2225,245 @@ fun TrackVolumeControlRow(
 
 // --- TAB 2: VIDEO TIMELINE STUDIO ---
 @Composable
+fun VideoPlayerPreview(
+    viewModel: StudioViewModel,
+    activeProject: Project,
+    lang: String
+) {
+    val context = LocalContext.current
+    var isPlayingVideo by remember { mutableStateOf(false) }
+    var videoViewRef by remember { mutableStateOf<android.widget.VideoView?>(null) }
+    
+    Card(
+        colors = CardDefaults.cardColors(containerColor = Color(0xFF0F071B)),
+        shape = RoundedCornerShape(20.dp),
+        border = BorderStroke(1.5.dp, Color(0xFF8F63F4).copy(alpha = 0.6f)),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(bottom = 8.dp)
+    ) {
+        Column(modifier = Modifier.padding(14.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text("📺", fontSize = 16.sp)
+                    Column {
+                        Text(
+                            text = if (lang == "CS") "NÁHLED STUDIOVÉHO VIDEOKLIPU" else "STUDIO VIDEO MONITOR PREVIEW",
+                            color = Color.White,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 12.sp
+                        )
+                        Text(
+                            text = "Aktivní styl: " + (activeProject.videoTemplate) + " | " + (activeProject.colorGradingPreset),
+                            color = Color.Gray,
+                            fontSize = 9.sp
+                        )
+                    }
+                }
+                
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(6.dp))
+                        .background(if (isPlayingVideo) Color(0xFF00FFCC) else Color(0xFF8F63F4).copy(alpha = 0.2f))
+                        .padding(horizontal = 8.dp, vertical = 4.dp)
+                ) {
+                    Text(
+                        text = if (isPlayingVideo) "LIVE STREAMING ⚡" else "IDLE MON",
+                        color = if (isPlayingVideo) Color.Black else Color(0xFFC0A6FF),
+                        fontSize = 8.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
+            
+            Spacer(modifier = Modifier.height(10.dp))
+            
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .aspectRatio(16f / 9f)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(Color.Black)
+                    .border(1.dp, Color(0xFF331E54), RoundedCornerShape(12.dp)),
+                contentAlignment = Alignment.Center
+            ) {
+                if (isPlayingVideo) {
+                    androidx.compose.ui.viewinterop.AndroidView(
+                        factory = { ctx ->
+                            android.widget.VideoView(ctx).apply {
+                                layoutParams = android.view.ViewGroup.LayoutParams(
+                                    android.view.ViewGroup.LayoutParams.MATCH_PARENT,
+                                    android.view.ViewGroup.LayoutParams.MATCH_PARENT
+                                )
+                                setZOrderMediaOverlay(true)
+                                val videoUrl = "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerJoyrides.mp4"
+                                val headers = mapOf("User-Agent" to "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+                                try {
+                                    setVideoURI(android.net.Uri.parse(videoUrl), headers)
+                                } catch (e: Exception) {
+                                    setVideoPath(videoUrl)
+                                }
+                                setOnPreparedListener { mediaPlayer ->
+                                    mediaPlayer.isLooping = true
+                                    mediaPlayer.setVolume(1.0f, 1.0f)
+                                    start()
+                                }
+                                setOnErrorListener { _, _, _ ->
+                                    try {
+                                        setVideoURI(android.net.Uri.parse("https://www.w3schools.com/html/mov_bbb.mp4"), headers)
+                                        start()
+                                        true
+                                    } catch (e: Exception) {
+                                        android.widget.Toast.makeText(ctx, "Chyba při přehrávání videa", android.widget.Toast.LENGTH_SHORT).show()
+                                        isPlayingVideo = false
+                                        false
+                                    }
+                                }
+                                videoViewRef = this
+                            }
+                        },
+                        modifier = Modifier.fillMaxSize()
+                    )
+                } else {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center,
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(
+                                Brush.verticalGradient(
+                                    colors = listOf(Color(0xFF1E1032), Color(0xFF090412))
+                                )
+                            )
+                            .padding(16.dp)
+                    ) {
+                        Text(
+                            text = "🎬",
+                            fontSize = 32.sp,
+                            modifier = Modifier.padding(bottom = 6.dp)
+                        )
+                        Text(
+                            text = if (lang == "CS") "Spustit nelineární video náhled" else "Launch Non-Linear Video Pre-Render",
+                            color = Color.White,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 12.sp
+                        )
+                        Text(
+                            text = "Formát: Full HD 1080p | FPS: 60 | Kodek: MP4 AVC",
+                            color = Color.Gray,
+                            fontSize = 10.sp,
+                            modifier = Modifier.padding(top = 2.dp, bottom = 12.dp)
+                        )
+                        
+                        Button(
+                            onClick = { isPlayingVideo = true },
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00FFCC)),
+                            shape = RoundedCornerShape(10.dp)
+                        ) {
+                            Text("▶ PŘEHRÁT LIVE NEBO EXPORT", color = Color.Black, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+                
+                val template = activeProject.videoTemplate ?: "Retro Sunset"
+                val grading = activeProject.colorGradingPreset ?: "Neutral"
+                
+                if (!isPlayingVideo) {
+                    Canvas(modifier = Modifier.fillMaxSize()) {
+                        val overlayColor = when {
+                            grading.contains("Warm") || template.contains("Sunset") -> Color(0xFFFF9900).copy(alpha = 0.12f)
+                            grading.contains("Cyberpunk") || template.contains("Cyberpunk") -> Color(0xFFCC00FF).copy(alpha = 0.14f)
+                            grading.contains("Nature") || template.contains("Nature") -> Color(0xFF00FF88).copy(alpha = 0.10f)
+                            grading.contains("Acid") || template.contains("Acid") -> Color(0xFF66FF00).copy(alpha = 0.15f)
+                            else -> Color.Transparent
+                        }
+                        if (overlayColor != Color.Transparent) {
+                            drawRect(color = overlayColor)
+                        }
+                        
+                        if (template.contains("Cyberpunk") || template.contains("Glitch")) {
+                            val scanlineCount = 20
+                            val step = size.height / scanlineCount
+                            for (j in 0 until scanlineCount) {
+                                drawLine(
+                                    color = Color(0xFF00FFFF).copy(alpha = 0.08f),
+                                    start = androidx.compose.ui.geometry.Offset(0f, j * step),
+                                    end = androidx.compose.ui.geometry.Offset(size.width, j * step),
+                                    strokeWidth = 1.5f
+                                )
+                            }
+                        }
+                        
+                        if (grading.contains("Vintage") || grading.contains("Super8")) {
+                            drawRect(color = Color(0xFF8B5A2B).copy(alpha = 0.16f))
+                        }
+                    }
+                }
+                
+                if (isPlayingVideo) {
+                    val fontName = activeProject.fontName ?: "Default"
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(bottom = 14.dp),
+                        contentAlignment = Alignment.BottomCenter
+                    ) {
+                        Text(
+                            text = "♪ [Zpěv: Studio Denuli Spark Professional Master Mix] ♪",
+                            color = Color.Yellow,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 11.sp,
+                            fontFamily = when (fontName) {
+                                "Space Grotesk" -> FontFamily.Monospace
+                                "Denuli Serif" -> FontFamily.Serif
+                                else -> FontFamily.Default
+                            },
+                            modifier = Modifier
+                                .background(Color.Black.copy(alpha = 0.65f), RoundedCornerShape(4.dp))
+                                .padding(horizontal = 8.dp, vertical = 3.dp)
+                        )
+                    }
+                }
+            }
+            
+            if (isPlayingVideo) {
+                Spacer(modifier = Modifier.height(10.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Button(
+                        onClick = {
+                            videoViewRef?.stopPlayback()
+                            isPlayingVideo = false
+                            videoViewRef = null
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE02424).copy(alpha = 0.2f)),
+                        border = BorderStroke(0.5.dp, Color(0xFFE02424)),
+                        modifier = Modifier.height(32.dp),
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp)
+                    ) {
+                        Text("⏹ STOP MONITOR", color = Color.Red, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                    }
+                    
+                    Text(
+                        text = "LIVE RENDER BUFFER: 100% OK",
+                        color = Color(0xFF00FFCC),
+                        fontSize = 9.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
 fun VideoTabScreen(viewModel: StudioViewModel) {
     val lang by viewModel.selectedLanguage.collectAsStateWithLifecycle()
     val activeProject by viewModel.activeProject.collectAsStateWithLifecycle()
@@ -2154,8 +2486,9 @@ fun VideoTabScreen(viewModel: StudioViewModel) {
 
     var customFontInput by remember { mutableStateOf("") }
     val context = LocalContext.current
+    val currentProject = activeProject
 
-    if (activeProject == null) {
+    if (currentProject == null) {
         Box(
             modifier = Modifier.fillMaxSize(),
             contentAlignment = Alignment.Center
@@ -2171,10 +2504,160 @@ fun VideoTabScreen(viewModel: StudioViewModel) {
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
+        // VIDEO PREVIEW MONITOR
+        item {
+            VideoPlayerPreview(
+                viewModel = viewModel,
+                activeProject = currentProject,
+                lang = lang
+            )
+        }
+
+        // AI VIDEO CLIP GENERATION MODULE
+        item {
+            var isGeneratingAiVideo by remember { mutableStateOf(false) }
+            var aiVideoProgress by remember { mutableStateOf(0f) }
+            var selectedVideoModel by remember { mutableStateOf("Sora Cinematic (OpenAI)") }
+            var videoPromptInput by remember { mutableStateOf("") }
+            val videoModels = listOf("Sora Cinematic (OpenAI)", "Runway Gen-3 Pro", "Denuli-VFX Realtime", "Stable Video 2.0")
+
+            LaunchedEffect(isGeneratingAiVideo) {
+                if (isGeneratingAiVideo) {
+                    aiVideoProgress = 0f
+                    while (aiVideoProgress < 1.0f) {
+                        kotlinx.coroutines.delay(100)
+                        aiVideoProgress += 0.04f
+                    }
+                    isGeneratingAiVideo = false
+                    Toast.makeText(context, if (lang == "CS") "AI Video vygenerováno a propojeno s touto vícestopou časovou osou! 🎬" else "AI Video generated and linked to timeline! 🎬", Toast.LENGTH_LONG).show()
+                }
+            }
+
+            Card(
+                colors = CardDefaults.cardColors(containerColor = Color(0xFF0C0212)),
+                shape = RoundedCornerShape(20.dp),
+                border = BorderStroke(1.5.dp, androidx.compose.ui.graphics.Brush.horizontalGradient(
+                    listOf(Color(0xFF00FFCC), Color(0xFFCC66FF))
+                )),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Text("⚡", fontSize = 18.sp)
+                            Text(
+                                text = if (lang == "CS") "AI GENERATOR VIDEOKLIPU K SONGU" else "AI SONG VIDEO GENERATOR",
+                                color = Color.White,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 13.sp
+                            )
+                        }
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(6.dp))
+                                .background(Color(0xFF00FFCC).copy(alpha = 0.15f))
+                                .padding(horizontal = 6.dp, vertical = 2.dp)
+                        ) {
+                            Text("Sora & Runway", color = Color(0xFF00FFCC), fontSize = 8.sp, fontWeight = FontWeight.Black)
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    Text(
+                        text = if (lang == "CS") "Vyberte AI video model:" else "Select Generative Video Model:",
+                        color = Color.LightGray,
+                        fontSize = 11.sp
+                    )
+                    
+                    LazyRow(
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        modifier = Modifier.padding(vertical = 6.dp)
+                    ) {
+                        items(videoModels.size) { idx ->
+                            val model = videoModels[idx]
+                            val isSel = selectedVideoModel == model
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(if (isSel) Color(0xFF8F63F4) else Color(0xFF211333))
+                                    .clickable { selectedVideoModel = model }
+                                    .padding(horizontal = 10.dp, vertical = 5.dp)
+                            ) {
+                                Text(model, color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(6.dp))
+
+                    OutlinedTextField(
+                        value = videoPromptInput,
+                        onValueChange = { videoPromptInput = it },
+                        placeholder = { Text(if (lang == "CS") "Popište scénu (např. 'neonový západ slunce s autem v dešti, filmová kvalita')" else "Describe video prompt...") },
+                        label = { Text(if (lang == "CS") "Návrh scény pro AI (AI Video Prompt)" else "AI Video Prompt") },
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedTextColor = Color.White,
+                            unfocusedTextColor = Color.White,
+                            focusedBorderColor = Color(0xFF00FFCC),
+                            unfocusedBorderColor = Color(0xFF321A4C)
+                        ),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    if (isGeneratingAiVideo) {
+                        Column {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = if (lang == "CS") "Generuji video k songu přes cloudové GPU..." else "Rendering AI video for song on Cloud GPU...",
+                                    color = Color(0xFF00FFCC),
+                                    fontSize = 10.sp
+                                )
+                                Text("${(aiVideoProgress * 100).toInt()}%", color = Color(0xFF00FFCC), fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                            }
+                            Spacer(modifier = Modifier.height(4.dp))
+                            LinearProgressIndicator(
+                                progress = { aiVideoProgress },
+                                color = Color(0xFF00FFCC),
+                                trackColor = Color(0xFF1B0C2B),
+                                modifier = Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(3.dp))
+                            )
+                        }
+                    } else {
+                        Button(
+                            onClick = {
+                                isGeneratingAiVideo = true
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00FFCC)),
+                            shape = RoundedCornerShape(10.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text(
+                                text = if (lang == "CS") "🎬 SPUSTIT AI GENEROVÁNÍ KLIPU" else "🎬 START AI VIDEO GENERATION",
+                                color = Color.Black,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Black
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
         // VIDEO EDIT TIMELINE GRAPHICAL CANVAS
         item {
             MultiTrackTimelineEditor(
-                activeProject = activeProject,
+                activeProject = currentProject,
                 viewModel = viewModel,
                 lang = lang
             )
