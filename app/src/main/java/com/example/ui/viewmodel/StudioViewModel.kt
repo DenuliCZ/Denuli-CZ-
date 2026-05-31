@@ -173,6 +173,25 @@ class StudioViewModel(private val repository: StudioRepository) : ViewModel() {
     private val _blockedUsers = MutableStateFlow<Set<String>>(emptySet())
     val blockedUsers: StateFlow<Set<String>> = _blockedUsers.asStateFlow()
 
+    // --- CREATOR REGISTRATION & COMPLIANCE STATES ---
+    private val _creatorName = MutableStateFlow("")
+    val creatorName: StateFlow<String> = _creatorName.asStateFlow()
+
+    private val _creatorAge = MutableStateFlow(25)
+    val creatorAge: StateFlow<Int> = _creatorAge.asStateFlow()
+
+    private val _creatorParentalConsentChecked = MutableStateFlow(false)
+    val creatorParentalConsentChecked: StateFlow<Boolean> = _creatorParentalConsentChecked.asStateFlow()
+
+    private val _creatorParentName = MutableStateFlow("")
+    val creatorParentName: StateFlow<String> = _creatorParentName.asStateFlow()
+
+    private val _creatorCopyrightAgreed = MutableStateFlow(false)
+    val creatorCopyrightAgreed: StateFlow<Boolean> = _creatorCopyrightAgreed.asStateFlow()
+
+    private val _isCreatorRegistered = MutableStateFlow(false)
+    val isCreatorRegistered: StateFlow<Boolean> = _isCreatorRegistered.asStateFlow()
+
     // --- LONG VIDEO EDITOR OPTIMIZATIONS (Fairy tales & Podcast 30m+ handling) ---
     private val _isProxyEditingOnly = MutableStateFlow(true)
     val isProxyEditingOnly: StateFlow<Boolean> = _isProxyEditingOnly.asStateFlow()
@@ -372,6 +391,40 @@ class StudioViewModel(private val repository: StudioRepository) : ViewModel() {
         val prefs = context.getSharedPreferences("denuli_studio_billing_prefs", Context.MODE_PRIVATE)
         val isBypassed = prefs.getBoolean("developer_bypass_premium", false)
         _isPremium.value = isBypassed
+
+        // Load creator profile details and age compliance
+        _creatorName.value = prefs.getString("creator_name", "") ?: ""
+        _creatorAge.value = prefs.getInt("creator_age", 25)
+        _creatorParentalConsentChecked.value = prefs.getBoolean("creator_parental_consent", false)
+        _creatorParentName.value = prefs.getString("creator_parent_name", "") ?: ""
+        _creatorCopyrightAgreed.value = prefs.getBoolean("creator_copyright_agreed", false)
+        _isCreatorRegistered.value = prefs.getBoolean("is_creator_registered", false)
+    }
+
+    fun registerCreatorProfile(
+        context: Context,
+        name: String,
+        age: Int,
+        parentalConsent: Boolean,
+        parentName: String,
+        copyrightAgreed: Boolean
+    ) {
+        val prefs = context.getSharedPreferences("denuli_studio_billing_prefs", Context.MODE_PRIVATE)
+        prefs.edit().apply {
+            putString("creator_name", name)
+            putInt("creator_age", age)
+            putBoolean("creator_parental_consent", parentalConsent)
+            putString("creator_parent_name", parentName)
+            putBoolean("creator_copyright_agreed", copyrightAgreed)
+            putBoolean("is_creator_registered", true)
+            apply()
+        }
+        _creatorName.value = name
+        _creatorAge.value = age
+        _creatorParentalConsentChecked.value = parentalConsent
+        _creatorParentName.value = parentName
+        _creatorCopyrightAgreed.value = copyrightAgreed
+        _isCreatorRegistered.value = true
     }
 
     fun toggleSimulatedPremium(context: Context): Boolean {
@@ -477,18 +530,96 @@ class StudioViewModel(private val repository: StudioRepository) : ViewModel() {
     fun loadDemoProject() {
         viewModelScope.launch(Dispatchers.IO) {
             val demoProject = Project(
-                title = "Můj první hudební projekt 🎵",
-                genre = "Synthwave",
-                bpm = 125,
-                lyrics = "[Verse 1]\nSvětla neonů svítí v noci,\nmáme rytmus ve své moci.\n\n[Chorus]\nBěžíme tmou, hudba v nás teče,\ntento tón už neuteče!\n\n[Outro]\n[Drums slowly fade out, leaving only warm synth chords]\nJen pro vás...\nKaždý tón, každý tep mého srdce",
-                stylePrompt = "energetic synthwave, 80s arcade, analog drum machine",
-                excludedPrompt = "slow, sad, acoustic drums, noise",
-                vocalPrompt = "clear synth lead, robotic vocal tune",
-                vocalGain = 0.85f,
-                backgroundMusicMix = 0.6f,
-                vocalDelayMs = 120L,
+                title = "Projekt Jedna Dvě Tři ⚡",
+                genre = "Synthwave Rock",
+                bpm = 128,
+                lyrics = """[Intro]
+[Driving synthwave bassline starts, suddenly joined by a massive, stomping rock drum beat and heavy guitar chords. The crowd chants in unison]
+(O-o-oh, Projekt Jedna Dvě Tři!)
+(O-o-oh, teď musíme jít!)
+
+[Verse 1]
+Kód v našich žilách začíná žít,
+zhasněte světla, čas začal jít.
+Sedmdesát procent je ocel a vzdor,
+zbytek je vesmír a neonový obzor.
+Stojíme v řadě, jeden velký proud,
+tuhle divokou řeku už nelze spláchnout.
+Z digitální mlhy vystupuje tvář,
+nad naším městem dnes plane nová zář.
+
+[Pre-Chorus]
+[Synthesizers build a fast arpeggio, electric guitars rise in a crescendo]
+Slyšíš ten tep? To je stroj, co má duši!
+Dneska ten krunýř ticha protrhnout musí!
+Společný nádech, síla miliónu těl,
+přichází to, co svět ještě neviděl!
+
+[Chorus]
+[Epic choral explosion, heavy guitar riffs combined with pulsing retro-synths]
+Projekt Jedna Dvě Tři – náš společný hlas!
+Když kytary hřmí a čas ztrácí svůj vzkaz!
+Syntetická noc a rockový den,
+zpíváme spolu ten největší sen!
+Jedna, dvě, tři – světla už svítí,
+v tomhle rytmu se nedá nic skrýti!
+
+[Verse 2]
+Kroky v davu duní jako basový tón,
+každý z nás drží svůj vlastní mikrofon.
+Digitální déšť stéká po horkém skle,
+tohle je kód, který nikdy nezemře.
+Zvedněte ruce, ať se spojí náš stín,
+vypusťte napětí z chladných turbín!
+
+[Pre-Chorus]
+[Tension building, drums driving a steady, powerful four-on-the-floor beat]
+Slyšíš ten tep? To je stroj, co má duši!
+Dneska ten krunýř ticha protrhnout musí!
+Společný nádech, síla miliónu těl,
+přichází to, co svět ještě neviděl!
+
+[Chorus]
+[Epic choral explosion, maximum energy]
+Projekt Jedna Dvě Tři – náš společný hlas! (Náš společný hlas!)
+Když kytary hřmí a čas ztrácí svůj vzkaz!
+Syntetická noc a rockový den,
+zpíváme spolu ten největší sen!
+Jedna, dvě, tři – světla už svítí,
+v tomhle rytmu se nedá nic skrýti!
+
+[Bridge]
+[The beat half-times, heavy guitar chords sustain as a massive choir takes the lead]
+Jedna! – Naše srdce bije jako hrom!
+Dvě! – Stojíme pevně jako starý strom!
+Tři! – Jsme volní, už nás neudrží hráz!
+(Teď přichází náš čas!)
+[A lightning-fast synth arpeggio leads into a soaring guitar solo]
+
+[Guitar and Synth Solo]
+[An epic duel between a screaming electric guitar and a bright, retro-futuristic synthesizer lead, perfectly synchronized with a driving rock beat]
+
+[Chorus]
+[Final, most explosive chorus, full choral support, crowd chanting along]
+Projekt Jedna Dvě Tři – náš společný hlas! (Náš společný hlas!)
+Když kytary hřmí a čas ztrácí svůj vzkaz!
+Syntetická noc a rockový den,
+zpíváme spolu ten největší sen!
+Jedna, dvě, tři – světla už svítí,
+v tomhle rytmu se nedá nic skrýti!
+
+[Outro]
+[Drums slowly fade out, leaving only warm synth chords]
+Jen pro vás...
+Každý tón, každý tep mého srdce""".trimIndent(),
+                stylePrompt = "driving synthwave bassline, stomping rock drum beat, heavy guitar chords, epic retro-synths, bright futurism, fast arpeggios",
+                excludedPrompt = "slow acoustic piano, silent ambient drone, chaotic jazz, bad performance",
+                vocalPrompt = "Epic rock choir with energetic vocoder lead and massive rock vocal duet",
+                vocalGain = 0.90f,
+                backgroundMusicMix = 0.75f,
+                vocalDelayMs = 240L,
                 voiceEffect = "Robot",
-                natureSound = "Rain",
+                natureSound = "Thunder",
                 videoTemplate = "Cyberpunk Neon",
                 videoTransition = "Zoom"
             )
@@ -497,6 +628,10 @@ class StudioViewModel(private val repository: StudioRepository) : ViewModel() {
             _activeProject.value = savedDemo
             selectProject(savedDemo)
         }
+    }
+
+    fun loadJednaDveTriProject() {
+        loadDemoProject()
     }
 
     fun generateCloudMusicWithTimeout(context: Context, styleStr: String, excludedStr: String) {
@@ -689,41 +824,38 @@ class StudioViewModel(private val repository: StudioRepository) : ViewModel() {
     }
 
     private fun startPlayingAudio(context: Context) {
-        val audioUrls = listOf(
-            "https://ccmixter.org/content/snowflake/snowflake_-_I_ll_Be_Right_Here.mp3",
-            "https://ccmixter.org/content/admiralbob77/admiralbob77_-_Two_Left_Feet.mp3",
-            "https://ccmixter.org/content/snowflake/snowflake_-_Stay_with_Me.mp3",
-            "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3"
-        )
-        tryPlayUrl(context, audioUrls, 0)
-    }
-
-    private fun tryPlayUrl(context: Context, urls: List<String>, index: Int) {
-        if (index >= urls.size) {
-            // All web URLs failed, notify user
-            _isPlaying.value = false
-            return
-        }
-        try {
-            mediaPlayer?.release()
-            mediaPlayer = android.media.MediaPlayer().apply {
-                val headers = mapOf("User-Agent" to "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Mobile Safari/537.36")
-                setDataSource(context, android.net.Uri.parse(urls[index]), headers)
-                setOnPreparedListener { mp ->
-                    mp.isLooping = true
-                    updatePlayerVolume()
-                    mp.start()
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val project = _activeProject.value
+                val cacheFile = com.example.util.ExportFileHelper.generateProjectAudioCache(context, project)
+                
+                kotlinx.coroutines.withContext(Dispatchers.Main) {
+                    try {
+                        mediaPlayer?.release()
+                        mediaPlayer = android.media.MediaPlayer().apply {
+                            setDataSource(cacheFile.absolutePath)
+                            setOnPreparedListener { mp ->
+                                mp.isLooping = true
+                                updatePlayerVolume()
+                                mp.start()
+                            }
+                            setOnErrorListener { _, _, _ ->
+                                _isPlaying.value = false
+                                false
+                            }
+                            prepare()
+                        }
+                    } catch (e: Exception) {
+                        e.printStackTrace()
+                        _isPlaying.value = false
+                    }
                 }
-                setOnErrorListener { _, _, _ ->
-                    // Recover gracefully by trying next URL
-                    tryPlayUrl(context, urls, index + 1)
-                    true
+            } catch (e: Exception) {
+                e.printStackTrace()
+                kotlinx.coroutines.withContext(Dispatchers.Main) {
+                    _isPlaying.value = false
                 }
-                prepareAsync()
             }
-        } catch (e: Exception) {
-            e.printStackTrace()
-            tryPlayUrl(context, urls, index + 1)
         }
     }
 

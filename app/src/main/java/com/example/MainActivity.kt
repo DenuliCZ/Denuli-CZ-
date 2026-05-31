@@ -1032,6 +1032,94 @@ fun StudioTabScreen(viewModel: StudioViewModel) {
             }
         }
 
+        // Help Walkthrough Guide Card
+        item {
+            Card(
+                colors = CardDefaults.cardColors(containerColor = Color(0xFF130922)),
+                shape = RoundedCornerShape(16.dp),
+                border = BorderStroke(1.2.dp, Color(0xFF8F63F4).copy(alpha = 0.5f)),
+                modifier = Modifier.fillMaxWidth().testTag("interactive_guide_card")
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Text("💡", fontSize = 20.sp)
+                        Text(
+                            text = if (lang == "CS") "RYCHLÝ PRŮVODCE STUDIEM" else "QUICK STUDIO WALKTHROUGH",
+                            color = Color(0xFF00FFCC),
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 13.sp
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(10.dp))
+                    
+                    val guides = if (lang == "CS") {
+                        listOf(
+                            "✍️ 1. TEXTY & TÉMA" to "Napište nebo vložte vlastní text písně dolů, nebo stiskněte AI TVORBA pro složení textu s Gemini.",
+                            "🎛️ 2. MIX & EFEKTY" to "Zvolte náladu, efekt vokálu (např. Robot) a přírodní atmosféru (např. Rain) na ovládacím panelu.",
+                            "▶️ 3. LIVE SYNTÉZA" to "Klikněte na zelené tlačítko 'PŘEHRÁT' v Mixeru. Náš offline syntezátor okamžitě vytvoří originální doprovod, basu a melodii generovanou přímo z vašich slov!",
+                            "📩 4. EXPORT A REÁLNÉ VIDEO" to "Stáhněte si hotový song ve formátu WAV/MP3, nebo vygenerujte plnohodnotné lyric video (MP4) s vizuálním ekvalizérem a běžícími texty!"
+                        )
+                    } else {
+                        listOf(
+                            "✍️ 1. LYRICS & TOPICS" to "Compose lyrics below or hit the AI CREATION engine to let Gemini generate verses automatically.",
+                            "🎛️ 2. MIX & EFFECTS" to "Pick vocals scale, apply a voice effect (e.g. Robot) and activate atmospheric sounds (e.g. Rain).",
+                            "▶️ 3. LIVE SYNTHESIS" to "Tap 'PLAY' in the mixer. The offline sound engine compiles dynamic beats, bass, and voice melody mapped from your words!",
+                            "📩 4. MASTER FILE & CLIPS" to "Export lossless WAV/MP3 master track, or render custom MP4 video with gorgeous visual grids, glowing spectrums and scrolling lyrics!"
+                        )
+                    }
+                    
+                    guides.forEachIndexed { i, (gTitle, gText) ->
+                        Column(modifier = Modifier.padding(vertical = 4.dp)) {
+                            Text(
+                                text = gTitle,
+                                color = Color.White,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text(
+                                text = gText,
+                                color = Color.LightGray,
+                                fontSize = 11.sp,
+                                lineHeight = 15.sp
+                            )
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Button(
+                        onClick = { viewModel.loadJednaDveTriProject() },
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00FFCC)),
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(min = 48.dp)
+                            .testTag("load_jedna_dve_tri_btn")
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.PlayArrow,
+                                contentDescription = null,
+                                tint = Color(0xFF0D0518),
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Text(
+                                text = if (lang == "CS") "NAČÍST NOVINKU 'PROJEKT JEDNA DVĚ TŘI' ⚡" else "LOAD EPIC 'PROJEKT JEDNA DVĚ TŘI' ⚡",
+                                color = Color(0xFF0D0518),
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 11.5.sp
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
         // Expanded Project Selection list drop down
         if (showProjectSelector) {
             item {
@@ -1940,7 +2028,7 @@ fun StudioTabScreen(viewModel: StudioViewModel) {
                             showExportDialog = false
 
                             val projTitle = activeProject?.title ?: "My_Song"
-                            val result = com.example.util.ExportFileHelper.saveSampleExportFile(context, projTitle, selectedFormat)
+                            val result = com.example.util.ExportFileHelper.saveSampleExportFile(context, activeProject, selectedFormat)
 
                             val message = if (lang == "CS") {
                                 if (result.first) {
@@ -4446,6 +4534,25 @@ fun ProfileTabScreen(viewModel: StudioViewModel) {
     val isPremium by viewModel.isPremium.collectAsStateWithLifecycle()
     val transactionsList by viewModel.purchaseTransactionsList.collectAsStateWithLifecycle()
 
+    val creatorName by viewModel.creatorName.collectAsStateWithLifecycle()
+    val creatorAge by viewModel.creatorAge.collectAsStateWithLifecycle()
+    val creatorParentalConsentChecked by viewModel.creatorParentalConsentChecked.collectAsStateWithLifecycle()
+    val creatorParentName by viewModel.creatorParentName.collectAsStateWithLifecycle()
+    val creatorCopyrightAgreed by viewModel.creatorCopyrightAgreed.collectAsStateWithLifecycle()
+    val isCreatorRegistered by viewModel.isCreatorRegistered.collectAsStateWithLifecycle()
+
+    var inputName by remember { mutableStateOf("") }
+    var inputAgeStr by remember { mutableStateOf("25") }
+    var inputParentConsent by remember { mutableStateOf(false) }
+    var inputParentName by remember { mutableStateOf("") }
+    var inputCopyrightAgreed by remember { mutableStateOf(false) }
+
+    LaunchedEffect(creatorName) { inputName = creatorName }
+    LaunchedEffect(creatorAge) { inputAgeStr = creatorAge.toString() }
+    LaunchedEffect(creatorParentalConsentChecked) { inputParentConsent = creatorParentalConsentChecked }
+    LaunchedEffect(creatorParentName) { inputParentName = creatorParentName }
+    LaunchedEffect(creatorCopyrightAgreed) { inputCopyrightAgreed = creatorCopyrightAgreed }
+
     var showGoogleConnected by remember { mutableStateOf(false) }
     var showDropboxConnected by remember { mutableStateOf(false) }
     var showMidiConnected by remember { mutableStateOf(false) }
@@ -4616,6 +4723,354 @@ fun ProfileTabScreen(viewModel: StudioViewModel) {
                             }
                         }
                     }
+                }
+            }
+        }
+
+        // --- SECTION: DISCIPLINED CREATOR COMPLIANCE REGISTRATION & LEGAL CHECKPOINT ---
+        item {
+            Card(
+                colors = CardDefaults.cardColors(containerColor = Color(0xFF0F0B18)),
+                shape = RoundedCornerShape(20.dp),
+                border = BorderStroke(1.5.dp, if (isCreatorRegistered) Color(0xFF00FFCC) else Color(0xFF8F63F4)),
+                modifier = Modifier.fillMaxWidth().testTag("profile_compliance_registration_card")
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    // Title Header with icon
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(text = "🖋️", fontSize = 24.sp)
+                        Column {
+                            Text(
+                                text = if (lang == "CS") "REGISTRACE & ÚČET TVŮRCE" else "CREATOR COMPLIANCE & ACCOUNT",
+                                color = Color.White,
+                                fontWeight = FontWeight.Black,
+                                fontSize = 13.sp
+                            )
+                            Text(
+                                text = if (lang == "CS") "Soulad s věkovým limitem GDPR, autorskými právy a prodejem práv" else "Verifying age compliance (GDPR Article 8), copyrights & sales eligibility",
+                                color = Color.LightGray,
+                                fontSize = 10.sp
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    if (isCreatorRegistered) {
+                        // Success certification badge
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(Color(0xFF0B241A), RoundedCornerShape(12.dp))
+                                .border(1.dp, Color(0xFF00FFCC).copy(alpha = 0.5f), RoundedCornerShape(12.dp))
+                                .padding(12.dp)
+                        ) {
+                            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    Text("✅", fontSize = 16.sp)
+                                    Text(
+                                        text = if (lang == "CS") "ÚČET TVŮRCE JE AKTIVNÍ A OVĚŘENÝ" else "CREATOR CHARTER ACTIVE & VERIFIED",
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color(0xFF00FFCC),
+                                        fontSize = 11.sp
+                                    )
+                                }
+                                HorizontalDivider(color = Color(0xFF00FFCC).copy(alpha = 0.2f), thickness = 1.dp, modifier = Modifier.padding(vertical = 4.dp))
+                                Text(
+                                    text = if (lang == "CS") "Pseudonym: $creatorName" else "Artist Name: $creatorName",
+                                    color = Color.White,
+                                    fontSize = 11.2.sp,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                                Text(
+                                    text = if (lang == "CS") "Deklarovaný věk: $creatorAge let" else "Certified Age: $creatorAge yrs",
+                                    color = Color.White,
+                                    fontSize = 10.5.sp
+                                )
+
+                                val isUnderAge = creatorAge < 15
+                                if (isUnderAge) {
+                                    Text(
+                                        text = if (lang == "CS") "🛡️ Rodičovský souhlas: ANO (Zástupce: $creatorParentName)" else "🛡️ Guardianship verified: YES (Parent: $creatorParentName)",
+                                        color = Color(0xFFFFCC00),
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                } else {
+                                    Text(
+                                        text = if (lang == "CS") "🛡️ Způsobivost: Plná (Splňuje věkový limit GDPR >15 let)" else "🛡️ Consent category: Adult (Self-authorized >15 yrs)",
+                                        color = Color.LightGray,
+                                        fontSize = 10.sp
+                                    )
+                                }
+
+                                Text(
+                                    text = if (lang == "CS") "⚖️ Autorská práva k výstupu: 100% náleží tvůrci" else "⚖️ Copyright share: 100% retained by registered creator",
+                                    color = Color(0xFFDEC3FF),
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+
+                                Box(
+                                    modifier = Modifier
+                                        .align(Alignment.End)
+                                        .background(Color(0xFF061A12), RoundedCornerShape(4.dp))
+                                        .padding(horizontal = 6.dp, vertical = 2.dp)
+                                ) {
+                                    Text(
+                                        text = "Reg. ID: SD-${creatorName.hashCode().coerceAtLeast(1000)}",
+                                        color = Color(0xFF00FFCC).copy(alpha = 0.7f),
+                                        fontSize = 8.sp,
+                                        fontFamily = FontFamily.Monospace
+                                    )
+                                }
+                            }
+                        }
+                        
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Text(
+                            text = if (lang == "CS") "Chcete údaje upravit?" else "Need to update credentials?",
+                            color = Color.Gray,
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    } else {
+                        // Unregistered status prompt
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(Color(0xFF1D1426), RoundedCornerShape(12.dp))
+                                .padding(12.dp)
+                        ) {
+                            Text(
+                                text = if (lang == "CS") "❌ Profil tvůrce nebyl nastaven. Pro testování registrace a splnění právních doložek vyplňte formulář níže." else "❌ Creator profile unset. Complete compliance form below to unlock verified test status.",
+                                color = Color(0xFFFFB5E3),
+                                fontSize = 10.sp,
+                                lineHeight = 13.sp
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    // Input Form
+                    OutlinedTextField(
+                        value = inputName,
+                        onValueChange = { inputName = it },
+                        label = { Text(if (lang == "CS") "Pseudonym / Jméno tvůrce" else "Artist pseudonym / Name") },
+                        placeholder = { Text("např. Denuli Spark CZ") },
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedTextColor = Color.White,
+                            unfocusedTextColor = Color.White,
+                            focusedBorderColor = Color(0xFF8F63F4),
+                            unfocusedBorderColor = Color(0xFF2E1949),
+                            focusedContainerColor = Color(0xFF06030B),
+                            unfocusedContainerColor = Color(0xFF06030B)
+                        ),
+                        modifier = Modifier.fillMaxWidth().testTag("compliance_reg_name"),
+                        singleLine = true,
+                        textStyle = LocalTextStyle.current.copy(fontSize = 12.sp)
+                    )
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    OutlinedTextField(
+                        value = inputAgeStr,
+                        onValueChange = { inputAgeStr = it.filter { char -> char.isDigit() } },
+                        label = { Text(if (lang == "CS") "Věk (Age)" else "Creator Age") },
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedTextColor = Color.White,
+                            unfocusedTextColor = Color.White,
+                            focusedBorderColor = Color(0xFF8F63F4),
+                            unfocusedBorderColor = Color(0xFF2E1949),
+                            focusedContainerColor = Color(0xFF06030B),
+                            unfocusedContainerColor = Color(0xFF06030B)
+                        ),
+                        modifier = Modifier.fillMaxWidth().testTag("compliance_reg_age"),
+                        singleLine = true,
+                        textStyle = LocalTextStyle.current.copy(fontSize = 12.sp)
+                    )
+
+                    val parsedAge = inputAgeStr.toIntOrNull() ?: 25
+                    val isUnderAgeSelected = parsedAge < 15
+
+                    if (isUnderAgeSelected) {
+                        Spacer(modifier = Modifier.height(10.dp))
+                        Card(
+                            colors = CardDefaults.cardColors(containerColor = Color(0xFF2B1D0B)),
+                            border = BorderStroke(1.dp, Color(0xFFFFAA00)),
+                            shape = RoundedCornerShape(10.dp)
+                        ) {
+                            Column(modifier = Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                Text(
+                                    text = if (lang == "CS") "🛡️ ZÁKONNÝ ZÁSTUPCE & RODIČOVSKÝ SOUHLAS" else "🛡️ PARENTAL CONSENT VERIFICATION",
+                                    color = Color(0xFFFFAA00),
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 10.sp
+                                )
+                                Text(
+                                    text = if (lang == "CS") "Podle nařízení GDPR věk pod 15 let vyžaduje ke zpracování nahrávek a AI norem doložit souhlas své matky, otce či ustanoveného zákonného zástupce." else "By GDPR Article 8 regulations, users under 15 years old are federally required to register parental/guardian formal approval.",
+                                    color = Color(0xFFFFECCC),
+                                    fontSize = 9.sp,
+                                    lineHeight = 12.sp
+                                )
+
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    Checkbox(
+                                        checked = inputParentConsent,
+                                        onCheckedChange = { inputParentConsent = it },
+                                        colors = CheckboxDefaults.colors(checkedColor = Color(0xFFFFAA00))
+                                    )
+                                    Text(
+                                        text = if (lang == "CS") "Mám plný souhlas zákonného zástupce" else "I confirm parental permission",
+                                        color = Color.White,
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+
+                                OutlinedTextField(
+                                    value = inputParentName,
+                                    onValueChange = { inputParentName = it },
+                                    label = { Text(if (lang == "CS") "Jméno rodiče / zákonného zástupce" else "Name of parent / legal guardian") },
+                                    colors = OutlinedTextFieldDefaults.colors(
+                                        focusedTextColor = Color.White,
+                                        unfocusedTextColor = Color.White,
+                                        focusedBorderColor = Color(0xFFFFAA00),
+                                        unfocusedBorderColor = Color(0xFF473110),
+                                        focusedContainerColor = Color(0xFF100B03),
+                                        unfocusedContainerColor = Color(0xFF100B03)
+                                    ),
+                                    modifier = Modifier.fillMaxWidth().testTag("compliance_reg_parent_name"),
+                                    singleLine = true,
+                                    textStyle = LocalTextStyle.current.copy(fontSize = 11.sp)
+                                )
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    // Copyright & IP Declaration
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.Top,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Checkbox(
+                            checked = inputCopyrightAgreed,
+                            onCheckedChange = { inputCopyrightAgreed = it },
+                            colors = CheckboxDefaults.colors(checkedColor = Color(0xFF8F63F4))
+                        )
+                        Text(
+                            text = if (lang == "CS") {
+                                "Prohlašuji, že beru na vědomí, že veškerá autorská práva k hudbě generované mým vkladem v této aplikaci patří výhradně mně, a souhlasím se Zásadami ochrany osobních údajů Studio Denuli a licenční dohodou."
+                            } else {
+                                "I declare that all copyrights for the dynamically customized songs generated here belong exclusively to me as the creator, and I agree to Studio Denuli Privacy Policy and license terms."
+                            },
+                            color = Color.LightGray,
+                            fontSize = 9.5.sp,
+                            lineHeight = 13.sp,
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    Button(
+                        onClick = {
+                            if (inputName.trim().isEmpty()) {
+                                Toast.makeText(context, if (lang == "CS") "Chyba: Vyplňte prosím pseudonym tvůrce!" else "Error: Please input an artist name!", Toast.LENGTH_SHORT).show()
+                                return@Button
+                            }
+                            if (isUnderAgeSelected && !inputParentConsent) {
+                                Toast.makeText(context, if (lang == "CS") "Chyba: U věku pod 15 let musíte zaškrtnout souhlas rodičů!" else "Error: Parental consent is required if under 15!", Toast.LENGTH_LONG).show()
+                                return@Button
+                            }
+                            if (isUnderAgeSelected && inputParentName.trim().isEmpty()) {
+                                Toast.makeText(context, if (lang == "CS") "Chyba: Vyplňte jméno rodiče!" else "Error: Please fill in parent's name!", Toast.LENGTH_SHORT).show()
+                                return@Button
+                            }
+                            if (!inputCopyrightAgreed) {
+                                Toast.makeText(context, if (lang == "CS") "Chyba: Musíte odsouhlasit autorská práva a zásady!" else "Error: Please accept the copyright & policy statement!", Toast.LENGTH_LONG).show()
+                                return@Button
+                            }
+
+                            viewModel.registerCreatorProfile(
+                                context = context,
+                                name = inputName.trim(),
+                                age = parsedAge,
+                                parentalConsent = if (parsedAge < 15) inputParentConsent else false,
+                                parentName = if (parsedAge < 15) inputParentName.trim() else "",
+                                copyrightAgreed = inputCopyrightAgreed
+                            )
+                            Toast.makeText(context, if (lang == "CS") "Registrace tvůrčího účtu úspěšná! Profil aktivován a šifrován... 🎉" else "Creator compliance profile updated and certified successfully! 🎉", Toast.LENGTH_LONG).show()
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF8F63F4)),
+                        modifier = Modifier.fillMaxWidth().testTag("compliance_reg_submit"),
+                        shape = RoundedCornerShape(10.dp)
+                    ) {
+                        Text(
+                            text = if (lang == "CS") "REGISTROVAT A AKTIVOVAT PROFIL TVŮRCE" else "REGISTER & CERTIFY COMPLIANCE PROFILE",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Black
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(14.dp))
+                    HorizontalDivider(color = Color(0xFF321A4F), thickness = 1.dp)
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    // Visual Info Block on three legal aspects: Parental Consent, peer-to-peer marketplace sales, and copyrights.
+                    Text(
+                        text = if (lang == "CS") "📋 STRUČNÝ PRÁVNÍ PŘEHLED (LEGAL FAQS)" else "📋 QUICK COMPLIANCE HANDBOOK (LEGAL FAQS)",
+                        color = Color(0xFFE2D5FF),
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 11.sp
+                    )
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    LegalComplianceBullet(
+                        title = if (lang == "CS") "1. RODIČOVSKÉ SOUHLASY:" else "1. PARENTAL CONSENT PROCESS:",
+                        desc = if (lang == "CS") {
+                            "Dle GDPR článku 8 a českého občanského zákoníku je věková hranice pro samostatný digitální souhlas dětí v ČR stanovena na 15 let. Děti mladší 15 let mohou aplikaci využívat pouze za doložitelného dohledu a registrace souhlasu zákonných zástupců, který je v aplikaci ukládán lokálně do chráněné paměti."
+                        } else {
+                            "Pursuant to GDPR Article 8, children under 15 years old in the Czech Republic need explicit guardian consent. This app dynamically enforces this by requiring a parent name which is kept encrypted in local SharedPreferences."
+                        }
+                    )
+
+                    Spacer(modifier = Modifier.height(6.dp))
+
+                    LegalComplianceBullet(
+                        title = if (lang == "CS") "2. PRODEJ MEZI UŽIVATELI (MARKETPLACE):" else "2. PEER-TO-PEER SALES & ESCROWS:",
+                        desc = if (lang == "CS") {
+                            "Předplatné premium služeb v aplikaci podléhá provizi obchodu Google Play (15% u malých vývojářů s ročním obratem do 1 mil. USD). Prodej autorských práv k hotovým písním v sekci 'Tržiště' však modelujeme jako přímý peer-to-peer prodej pod licencí Denuli, který se vypořádává přímým bankovním převodem na účet tvůrce se smluvním postoupením práv, což obchází Google Play provize, protože nejde o digitální nákup doplňku hry/aplikace."
+                        } else {
+                            "While premium subscriptions go through Google Play Billing matching Google's developer terms, copyright marketplace trades use direct licensing contracts. Rights are transferred directly matching state civil code contract terms."
+                        }
+                    )
+
+                    Spacer(modifier = Modifier.height(6.dp))
+
+                    LegalComplianceBullet(
+                        title = if (lang == "CS") "3. AUTORSKÁ PRÁVA:" else "3. INTELLECTUAL PROPERTY & RIGHTS:",
+                        desc = if (lang == "CS") {
+                            "Veškerá práva k vámi vygenerované nebo smíchané hudbě náleží vám jako tvůrci od okamžiku stvoření. Náš systém ani umělá inteligence si nenárokují žádné podíly ze zisku ani royalty poplatky ze skladeb vytvořených za použití Spark rozhraní (ani při jejich komerčním užití na YouTube či Spotify)."
+                        } else {
+                            "Our engine reserves zero shares of master royalties. 100% of generated audio, vocals, video streams, or sheet scores are owned entirely by you, granting you complete freedom to distribute globally."
+                        }
+                    )
                 }
             }
         }
@@ -7722,6 +8177,25 @@ fun GlowingMainButtonWrapper(
             drawCircle(glowColor, radius = 4f, center = androidx.compose.ui.geometry.Offset(size.width / 2, 0f))
             drawCircle(glowColor, radius = 4f, center = androidx.compose.ui.geometry.Offset(size.width / 2, size.height))
         }
+    }
+}
+
+@Composable
+fun LegalComplianceBullet(title: String, desc: String) {
+    Column(modifier = Modifier.padding(bottom = 6.dp)) {
+        Text(
+            text = title,
+            color = Color(0xFFFFB5E3),
+            fontSize = 10.5.sp,
+            fontWeight = FontWeight.Bold
+        )
+        Text(
+            text = desc,
+            color = Color.LightGray,
+            fontSize = 9.5.sp,
+            lineHeight = 13.sp,
+            modifier = Modifier.padding(start = 4.dp, top = 2.dp)
+        )
     }
 }
 

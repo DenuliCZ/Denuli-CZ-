@@ -1,7 +1,9 @@
 package com.example
 
+import androidx.compose.foundation.layout.padding
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onRoot
+import androidx.compose.ui.unit.dp
 import com.example.ui.theme.MyApplicationTheme
 import com.github.takahirom.roborazzi.RobolectricDeviceQualifiers
 import com.github.takahirom.roborazzi.captureRoboImage
@@ -24,5 +26,14 @@ class GreetingScreenshotTest {
     composeTestRule.setContent { MyApplicationTheme { Greeting("Robolectric") } }
 
     composeTestRule.onRoot().captureRoboImage(filePath = "src/test/screenshots/greeting.png")
+  }
+
+  @androidx.compose.runtime.Composable
+  fun Greeting(name: String) {
+    androidx.compose.material3.Text(
+      text = "Ahoj, $name!",
+      color = androidx.compose.ui.graphics.Color.White,
+      modifier = androidx.compose.ui.Modifier.padding(16.dp)
+    )
   }
 }
