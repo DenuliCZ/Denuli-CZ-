@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Zásady ochrany osobních údajů – Studio Denuli (Spark)</title>
+    <title>Právní informace – Studio Denuli (Spark)</title>
     <style>
         :root {
             --bg-color: #F7F4EF;
@@ -30,7 +30,6 @@
             font-size: 16px;
             line-height: 1.625;
             -webkit-font-smoothing: antialiased;
-            -moz-osx-font-smoothing: grayscale;
             padding: 40px 20px;
         }
 
@@ -39,7 +38,6 @@
             margin: 0 auto;
         }
 
-        /* Header styling */
         header {
             text-align: center;
             margin-bottom: 40px;
@@ -57,7 +55,6 @@
             background-color: var(--primary-color);
             color: #00FFCC;
             font-size: 32px;
-            font-weight: bold;
             margin-bottom: 16px;
             box-shadow: 0 8px 16px rgba(27, 12, 43, 0.12);
         }
@@ -66,7 +63,6 @@
             color: var(--primary-color);
             font-size: 2rem;
             font-weight: 800;
-            letter-spacing: -0.5px;
             margin-bottom: 8px;
         }
 
@@ -74,15 +70,33 @@
             font-size: 1.1rem;
             color: var(--accent-color);
             font-weight: 600;
-            margin-bottom: 4px;
         }
 
-        .last-updated {
-            font-size: 0.85rem;
+        /* Navigační záložky */
+        .nav-tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 30px;
+            justify-content: center;
+        }
+
+        .tab-btn {
+            background-color: var(--card-bg);
+            border: 1px solid var(--border-color);
+            padding: 12px 24px;
+            border-radius: 30px;
+            cursor: pointer;
+            font-weight: 600;
             color: var(--text-secondary);
+            transition: var(--transition);
         }
 
-        /* Section/card design */
+        .tab-btn.active {
+            background-color: var(--accent-color);
+            color: white;
+            border-color: var(--accent-color);
+        }
+
         .section-card {
             background-color: var(--card-bg);
             border: 1px solid var(--border-color);
@@ -90,12 +104,6 @@
             padding: 30px;
             margin-bottom: 24px;
             box-shadow: var(--shadow);
-            transition: var(--transition);
-        }
-
-        .section-card:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 24px rgba(0, 0, 0, 0.06);
         }
 
         h2 {
@@ -103,42 +111,23 @@
             font-size: 1.3rem;
             font-weight: 700;
             margin-bottom: 16px;
-            display: flex;
-            align-items: center;
-            gap: 10px;
             border-bottom: 2px solid var(--bg-color);
             padding-bottom: 8px;
         }
 
-        h2 span {
-            color: var(--accent-color);
-            font-size: 1.5rem;
-        }
-
         p {
             margin-bottom: 16px;
-            color: var(--text-main);
         }
 
-        p:last-of-type {
-            margin-bottom: 0;
-        }
-
-        /* Bullet lists styling */
         ul {
             list-style: none;
             margin-bottom: 16px;
-        }
-
-        ul:last-child {
-            margin-bottom: 0;
         }
 
         li {
             position: relative;
             padding-left: 24px;
             margin-bottom: 10px;
-            color: var(--text-main);
         }
 
         li::before {
@@ -146,10 +135,8 @@
             position: absolute;
             left: 0;
             color: var(--accent-color);
-            font-weight: bold;
         }
 
-        /* Informational box / warning callout */
         .callout-box {
             background-color: rgba(143, 99, 244, 0.05);
             border-left: 4px solid var(--accent-color);
@@ -161,9 +148,9 @@
         .callout-box p {
             font-weight: 600;
             color: var(--primary-color);
+            margin: 0;
         }
 
-        /* Important list markers */
         .highlight {
             font-weight: bold;
             color: var(--primary-color);
@@ -178,41 +165,12 @@
             color: var(--text-secondary);
         }
 
-        /* Custom scrollbar for premium touch */
-        ::-webkit-scrollbar {
-            width: 10px;
+        .tab-content {
+            display: none;
         }
 
-        ::-webkit-scrollbar-track {
-            background: var(--bg-color);
-        }
-
-        ::-webkit-scrollbar-thumb {
-            background: var(--border-color);
-            border-radius: 5px;
-        }
-
-        ::-webkit-scrollbar-thumb:hover {
-            background: var(--accent-color);
-        }
-
-        /* Media queries for fluid responsiveness */
-        @media (max-width: 600px) {
-            body {
-                padding: 20px 12px;
-            }
-
-            .section-card {
-                padding: 20px 16px;
-            }
-
-            h1 {
-                font-size: 1.6rem;
-            }
-
-            h2 {
-                font-size: 1.15rem;
-            }
+        .tab-content.active {
+            display: block;
         }
     </style>
 </head>
@@ -220,100 +178,113 @@
 
 <div class="container">
     <header>
-        <div class="logo-placeholder">🎧</div>
+        <div class="logo-placeholder">🚀</div>
         <div class="subtitle">Denuli-CZ</div>
-        <h1>Zásady ochrany osobních údajů</h1>
-        <div class="last-updated">Aplikace: <strong>Studio Denuli (Spark)</strong> | Poslední aktualizace: 31. května 2026</div>
+        <h1>Studio Denuli (Spark)</h1>
+        <p style="font-size: 0.9rem; color: var(--text-secondary); margin-top: 5px;">Oficiální právní dokumentace a licenční ujednání</p>
     </header>
 
-    <main>
-        <!-- Card 1: Úvod a správce -->
+    <!-- Přepínač mezi dokumenty -->
+    <div class="nav-tabs">
+        <button class="tab-btn active" onclick="openTab('privacy')">Ochrana soukromí (GDPR)</button>
+        <button class="tab-btn" onclick="openTab('terms')">Obchodní & Licenční podmínky</button>
+    </div>
+
+    <!-- ZÁLOŽKA A: OCHRANA SOUKROMÍ -->
+    <div id="privacy" class="tab-content active">
         <div class="section-card">
-            <h2><span>01</span> Úvodní ustanovení a správce údajů</h2>
-            <p>Tyto zásady ochrany osobních údajů (dále jen „Zásady“) popisují, jakým způsobem jsou shromažďovány, chráněny, zpracovávány a uchovávány osobní údaje uživatelů mobilní aplikace <strong>Studio Denuli (Spark)</strong> (dále jen „Aplikace“).</p>
-            <p>Provozovatelem Aplikace and zároveň správcem osobních údajů je subjekt <strong>Denuli-CZ</strong> (dále jen „Správce“).</p>
-            <p>Ochrana vašich osobních údajů je pro nás nejvyšší prioritou. Veškeré nakládání s daty provádíme v plném souladu s Nařízením Evropského parlamentu a Rady (EU) 2016/679 (GDPR), zákonem o zpracování osobních údajů a podmínkami pro vývojáře Google Play (Developer Distribution Agreement).</p>
+            <h2>01 Úvodní ustanovení a správce údajů</h2>
+            <p>Tyto zásady ochrany osobních údajů popisují, jakým způsobem jsou shromažďovány, chráněny a zpracovávány osobní údaje uživatelů mobilní aplikace <strong>Studio Denuli (Spark)</strong>.</p>
+            <p>Provozovatelem Aplikace a správcem osobních údajů je subjekt <strong>Denuli-CZ</strong>.</p>
         </div>
 
-        <!-- Card 2: Věkové omezení (Ochrana dětí) -->
         <div class="section-card">
-            <h2><span>02</span> Ochrana dětí, věkové omezení a souhlas rodičů</h2>
+            <h2>02 Ochrana dětí, věkové omezení (15+)</h2>
+            <p>Bezpečnost nezletilých je pro nás zásadní. V souladu s GDPR uplatňujeme přísná pravidla ověřování věku:</p>
+            <ul>
+                <li><span class="highlight">Uživatelé starší 15 let:</span> Mohou aplikaci registrovat a udělit souhlas se zpracováním osobních údajů samostatně.</li>
+                <li><span class="highlight">Uživatelé mladší 15 let:</span> Používání aplikace a vytváření účtu je povoleno <strong>výhradně po prokazatelném udělení souhlasu jejich zákonného zástupce (rodiče)</strong> prostřednictvím k tomu určeného mechanismu v aplikaci.</li>
+            </ul>
+        </div>
+
+        <div class="section-card">
+            <h2>03 Zpracovávaná data a účel použití</h2>
+            <p>Aplikace pro své bezchybné fungování, syntézu hudby a export videí zpracovává následující kategorie dat:</p>
+            <ul>
+                <li><span class="highlight">Zvukové nahrávky a texty (Vokály):</span> Nahrávky zpěvu a texty vložené uživatelem jsou zpracovány pro vytvoření vícestopého mixu a generování originálních harmonií.</li>
+                <li><span class="highlight">Technické zpracování:</span> Video generátor komunikuje s hardwarovým kodérem telefonu (MediaCodec) pro generování finálního MP4 videa přímo do složky stahování uživatele.</li>
+                <li><span class="highlight">Registrační údaje:</span> E-mailová adresa a zašifrované heslo slouží k zabezpečení uživatelského účtu.</li>
+            </ul>
+        </div>
+
+        <div class="section-card">
+            <h2>04 Odvolání souhlasu a zrušení účtu</h2>
+            <p>Uživatel má plnou kontrolu nad svými údaji v souladu s pravidly Google Play:</p>
+            <ul>
+                <li><span class="highlight">Smazání v aplikaci:</span> Účet včetně všech osobních údajů, projektů a dat lze trvale smazat jedním kliknutím přímo v aplikaci v sekci <strong>"Můj Denuli" -> "Zrušit účet"</strong>.</li>
+                <li><span class="highlight">Žádost e-mailem:</span> Požádat o kompletní smazání lze také na e-mailu: <strong>denulinkacervinkova@gmail.com</strong>.</li>
+            </ul>
+        </div>
+    </div>
+
+    <!-- ZÁLOŽKA B: OBCHODNÍ A LICENČNÍ PODMÍNKY -->
+    <div id="terms" class="tab-content">
+        <div class="section-card">
+            <h2>01 Vlastnictví práv a stoprocentní autorská svoboda</h2>
             <div class="callout-box">
-                <p>Bezpečnost nezletilých je pro nás zásadní. V souladu s GDPR a pravidly Google Play pro rodiny a děti uplatňujeme přísná pravidla ověřování věku.</p>
+                <p>Uživatelská svoboda bez omezení: Jelikož hudba, melodie, bicí i doprovodná tematická videa vznikají unikátní procedurální syntézou přímo v zařízení uživatele, veškerá autorská práva, master licence a budoucí zisky z těchto děl patří v plném rozsahu 100 % uživateli (tvůrci).</p>
             </div>
+            <p>Provozovatel aplikace (Denuli-CZ) si nečiní žádné licenční ani finanční nároky na skladby a videoklipy vytvořené uživatelem. Neexistují zde žádné skryté licenční poplatky nebo nároky třetích stran.</p>
+        </div>
+
+        <div class="section-card">
+            <h2>02 Komerční využití (Rádia, TV, Audioknihy, Filmy)</h2>
+            <p>Uživatelé mají plné, celosvětové a časově neomezené právo exportovaná díla (audio ve formátu WAV/MP3, video MP4) používat ke komerčním účelům:</p>
             <ul>
-                <li><span class="highlight">Uživatelé starší 15 let (15+):</span> Mohou aplikaci registrovat, používat a udělit platný souhlas se zpracováním osobních údajů zcela samostatně v rámci procesu registrace.</li>
-                <li><span class="highlight">Uživatelé mladší 15 let (0–14 včetně):</span> Používání Aplikace, vytváření uživatelského účtu a zpracování dat je povoleno <strong>výhradně po prokazatelném udělení souhlasu jejich zákonného zástupce (rodiče)</strong>. Aplikace obsahuje interaktivní mechanismus pro ověření a potvrzení rodičovského souhlasu.</li>
-                <li><span class="highlight">Ochrana dat:</span> Pokud zjistíme, že byly shromážděny osobní údaje od osoby mladší 15 let bez řádného, ověřitelného a vědomého souhlasu zákonných zástupců, budou tyto údaje bez zbytečného odkladu odstraněny z našich systémů.</li>
+                <li>Nabízet a prodávat skladby do <span class="highlight">rádiového vysílání</span> a televizního vysílání.</li>
+                <li>Používat hudební podkresy pro <span class="highlight">audioknihy, podcasty a videoblogy</span>.</li>
+                <li>Prodávat a licencovat vytvořené songy jako oficiální <span class="highlight">soundtracky nebo trailery k filmům</span>.</li>
+                <li>Zveřejňovat a monetizovat tvorbu na platformách YouTube, TikTok, Instagram a Spotify bez rizika autorských sankcí (Copyright claims).</li>
             </ul>
         </div>
 
-        <!-- Card 3: Rozsah zpracování dat (Aktualizováno) -->
         <div class="section-card">
-            <h2><span>03</span> Zpracovávaná data a účel jejich použití</h2>
-            <p>Aplikace pro své bezchybné fungování, kreativní vygenerování videí, pokročilou mixáž hudby, synchronizaci s cloudem, distribuci, nákup a prodej autorského obsahu zpracovává následující kategorie dat:</p>
+            <h2>03 Hudební tržiště a prodej mezi uživateli</h2>
+            <p>Pokud uživatel využije integrované funkce tržiště (Marketplace) v aplikaci Studio Denuli k prodeji své hudby, licencí nebo autorských práv jiným uživatelům:</p>
             <ul>
-                <li><span class="highlight">Zvukové nahrávky a videoklipy (Vokály, nástroje a AI):</span> Aplikace umožňuje nahrávat, zpracovávat, ukládat, stahovat a exportovat vaše zvukové záznamy a zpěv. Tyto nahrávky a vygenerovaná AI videa jsou zpracovány pro vytvoření vícestopého mixu (Multi-track) a uloženy ve vašem zařízení (<strong>přímé stahování do paměti</strong>), případně odeslány na cloudové rozhraní za účelem poskytnutí kreativní služby a AI analýzy.</li>
-                <li><span class="highlight">Prodej a obchodní transakce (Hudební tržiště):</span> Pokud uživatel využije možnost prodat nebo nakoupit hudbu a autorská práva, zpracováváme identifikační údaje autora, fakturační údaje, bankovní spojení pro vyplácení odměn a kompletní historii transakcí.</li>
-                <li><span class="highlight">Sdílení na sociální sítě:</span> Aplikace integruje oficiální rozhraní API třetích stran (např. Meta, TikTok, YouTube) pro přímé a pohodlné sdílení vygenerované hudby a videoklipů na uživatelské profily na sociálních sítích. Při tomto procesu může docházet k nezbytnému přenosu autorizačních tokenů.</li>
-                <li><span class="highlight">Textové zprávy a registrace:</span> Zašifrované heslo, e-mail, chatová komunikace, textové zprávy, komentáře v komunitní sekci a promptová zadání pro umělou inteligenci jsou zpracovány k zajištění interaktivních komunitních prvků a správě profilu.</li>
-                <li><span class="highlight">Platební transakce (Google Play Billing API):</span> Pro odemknutí pokročilých funkcí, neomezených exportů, nákupu licencí a prémiového obsahu využíváme výhradně integrovaný systém **Google Play In-App Billing**. My sami neukládáme ani nezpracováváme kompletní údaje o vaší platební kartě.</li>
-                <li><span class="highlight">Technické parametry a metadata:</span> IP adresa, parametry zařízení, vybrané audio formáty a základní chybové logy k zajištění plynulého streamování segmentovaných bufferů a předcházení pádům aplikace.</li>
+                <li>Uživatel si sám určuje prodejní cenu svého díla.</li>
+                <li>Při prodeji dochází k přímému převodu práv nebo poskytnutí licence kupujícímu podle zvoleného typu transakce.</li>
+                <li>Provozovatel zajišťuje technické zázemí tržiště. Finanční transakce a vyplácení odměn na bankovní spojení autora podléhají bezpečnostním standardům a ověření totožnosti z důvodu zamezení podvodům.</li>
             </ul>
         </div>
 
-        <!-- Card 4: Udělení a odvolání souhlasu + ZRUŠENÍ ÚČTU -->
         <div class="section-card">
-            <h2><span>04</span> Souhlas uživatele, jeho odvolání and zrušení účtu</h2>
-            <p>Uživatel uděluje výslovný souhlas se zpracováním osobních údajů interaktivně přímo při prvním spuštění Aplikace nebo při registraci účtu.</p>
-            <p>V souladu s nařízením GDPR a nekompromisními pravidly Google Play o transparentnosti mazání dat má každý uživatel plnou kontrolu nad svými údaji:</p>
-            <ul>
-                <li><span class="highlight">Okamžité odstranění přímo v aplikaci:</span> Uživatel může svůj účet včetně všech osobních údajů, nahraných skladeb, zakoupených/prodaných licencí, chatů a cloudových projektů trvale smazat jedním kliknutím přímo v rozhraní aplikace v sekci <strong>"Můj Denuli" -> "Zrušit účet"</strong>.</li>
-                <li><span class="highlight">Žádost přes e-mail:</span> Odvolat souhlas a požádat o kompletní smazání účtu a všech souvisejících dat (právo být zapomenut) lze také písemným sdělením zaslaným na e-mailovou adresu Správce. Data budou ze všech našich produkčních databází kompletně odstraněna do 30 dnů.</li>
-                <li>Upozorňujeme, že odvoláním souhlasu či smazáním účtu zaniká přístup k vícestopým, komunitním a AI funkcím Aplikace.</li>
-            </ul>
+            <h2>04 Podpora a kontakt</h2>
+            <p>Pokud máte jakékoliv dotazy k licenčním podmínkám, autorským právům nebo potřebujete pomoci s nefunkčním exportem, kontaktujte autorku projektu na e-mailu: <strong>denulinkacervinkova@gmail.com</strong></p>
         </div>
-
-        <!-- Card 5: Odstoupení od smlouvy -->
-        <div class="section-card">
-            <h2><span>05</span> Práva spotřebitele a odstoupení od smlouvy</h2>
-            <p>Vzhledem k tomu, že Aplikace Studio Denuli (Spark) poskytuje digitální obsah na vyžádání (AI generování hudby a videoklipů, přímé stahování prémiových skladeb a licencí):</p>
-            <div class="callout-box">
-                <p>Digitální obsah a služby: Vyjádřením výslovného souhlasu s počátkem plnění (např. okamžité vygenerování AI klipu, započetí stahování placené skladby) uživatel bere na vědomí, že v souladu s občanským zákoníkem na ochranu spotřebitele ZANIKÁ právo na odstoupení od smlouvy bez udání důvodu ve lhůtě 14 dnů.</p>
-            </div>
-            <p><span class="highlight">Předplatné:</span> U pravidelného předplatného prémiových funkcí má uživatel plné právo toto předplatné kdykoliv zrušit přímo prostřednictvím správy svého účtu v obchodě Google Play, čímž se zamezí dalšímu automatickému stržení platby pro následující období.</p>
-        </div>
-
-        <!-- Card 6: Příjemci a zabezpečení dat -->
-        <div class="section-card">
-            <h2><span>06</span> Zabezpečení a předávání dat třetím stranám</h2>
-            <p>Odpovědně dbáme na zabezpečení dat našich uživatelů. Implementujeme moderní technická a organizační opatření chránící data před neoprávněným přístupem, ztrátou nebo zneužitím:</p>
-            <ul>
-                <li>Přenos audio souborů, textů a videoklipů na cloudové GPU servery je chráněn šifrovaným HTTPS protokolem.</li>
-                <li>Generované audio, texty a videoklipy jsou doručovány s časově omezeným zabezpečeným přístupem.</li>
-                <li>Osobní údaje zásadně neprodáváme ani nesdílíme se třetími stranami pro marketingové a reklamní účely. Ke zpracování dochází výhradně u prověřených poskytovatelů infrastrukturních služeb (např. Google Cloud, OpenAI) a prostřednictvím oficiálních API rozhraní pro vyžádané sdílení na sociální sítě.</li>
-            </ul>
-        </div>
-
-        <!-- Card 7: Vaše práva -->
-        <div class="section-card">
-            <h2><span>07</span> Vaše zákonná práva (subjekt údajů)</h2>
-            <p>Infolinka a podpora: V případě jakýchkoliv dotazů ohledně zpracování dat či uplatnění práv nás kontaktujte na e-mailu: <strong>denulinkacervinkova@gmail.com</strong></p>
-            <p>V souladu s nařízením GDPR máte jako uživatel následující nezadatelná práva:</p>
-            <ul>
-                <li>Právo na přístup ke svým zpracovávaným osobním údajům a právo na jejich opravu.</li>
-                <li>Právo na výmaz osobních údajů („právo být zapomenut“) a omezení zpracování dat.</li>
-                <li>Právo na přenositelnost osobních údajů k jinému správci.</li>
-                <li>Právo vznést námitku proti zpracování a právo podat stížnost u dozorového Úřadu pro ochranu osobních údajů (ÚOOÚ).</li>
-            </ul>
-        </div>
-    </main>
+    </div>
 
     <footer>
         <p>&copy; 2026 Denuli-CZ. Všechna práva vyhrazena.</p>
-        <p>Tento dokument splňuje veškeré požadavky Google Play Developer Distribution Agreement a General Data Protection Regulation (EU) 2016/679.</p>
+        <p>Aplikace Studio Denuli (Spark) používá pokročilý lokální renderovací engine a respektuje plnou autonomii umělecké tvorby.</p>
     </footer>
 </div>
+
+<script>
+    function openTab(tabName) {
+        var i;
+        var x = document.getElementsByClassName("tab-content");
+        var tabs = document.getElementsByClassName("tab-btn");
+        for (i = 0; i < x.length; i++) {
+            x[i].classList.remove("active");
+        }
+        for (i = 0; i < tabs.length; i++) {
+            tabs[i].classList.remove("active");
+        }
+        document.getElementById(tabName).classList.add("active");
+        event.currentTarget.classList.add("active");
+    }
+</script>
 
 </body>
 </html>
