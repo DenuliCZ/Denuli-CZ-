@@ -1,230 +1,86 @@
 package com.example.util
 
-object TranslationUtility {
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 
-    // Simple yet comprehensive in-memory translation dictionary for Czech and English prompts to 10+ major world languages
-    private val translationDictionary = mapOf(
-        "Můj Denuli" to mapOf(
-            "CS" to "Můj Denuli Profile",
-            "EN" to "My Denuli Settings",
-            "SK" to "Môj Denuli Profil",
-            "DE" to "Mein Denuli Profil",
-            "ES" to "Mi Perfil Denuli",
-            "FR" to "Mon Profil Denuli",
-            "PL" to "Mój Profil Denuli",
-            "IT" to "Il Mio Profilo Denuli",
-            "UA" to "Мій Профіль Denuli",
-            "VI" to "Hồ sơ Denuli của tôi"
-        ),
-        "EVIDENCE NÁKUPŮ & ÚČETNICTVÍ" to mapOf(
-            "CS" to "EVIDENCE NÁKUPŮ & ÚČETNICTVÍ",
-            "EN" to "PURCHASE HISTORY & ACCOUNTING",
-            "SK" to "EVIDENCIA NÁKUPOV & ÚČTOVNÍCTVO",
-            "DE" to "EINKAUFSVERZEICHNIS & BUCHHALTUNG",
-            "ES" to "HISTORIAL DE COMPRAS Y CONTABILIDAD",
-            "FR" to "HISTORIQUE D'ACHAT & COMPTABILITÉ",
-            "PL" to "REJESTR ZAKUPÓW I KSIĘGOWOŚĆ",
-            "IT" to "CRONOLOGIA ACQUISTI E CONTABILITÀ",
-            "UA" to "ІСТОРІЯ ПОКУПОК ТА БУХГАЛТЕРІЯ",
-            "VI" to "LỊCH SỬ MUA HÀNG & KẾ TOÁN"
-        ),
-        "AI RYCHLÁ POMOC & KOPILOT" to mapOf(
-            "CS" to "AI RYCHLÁ POMOC & KOPILOT",
-            "EN" to "AI QUICK HELP & CO-PILOT",
-            "SK" to "AI RÝCHLA POMOC & KOPILOT",
-            "DE" to "AI CO-PILOT SCHNELLHILFE",
-            "ES" to "ASISTENCIA RÁPIDA DE IA Y COPILOTO",
-            "FR" to "ASSISTANCE RAPIDE IA & COPILOTE",
-            "PL" to "SZYBKA POMOC AI I KOPILOT",
-            "IT" to "AI ASSISTENZA RAPIDA E COPILOTA",
-            "UA" to "ШВИДКА ДОПОМОГА AI ТА КОПІЛОТ",
-            "VI" to "HỖ TRỢ NHANH AI & TRỢ LÝ PHỤ"
-        ),
-        "Položit dotaz 🚀" to mapOf(
-            "CS" to "Položit dotaz 🚀",
-            "EN" to "Ask AI Co-Pilot 🚀",
-            "SK" to "Položiť otázku 🚀",
-            "DE" to "Frage stellen 🚀",
-            "ES" to "Hacer pregunta 🚀",
-            "FR" to "Poser une question 🚀",
-            "PL" to "Zadaj pytanie 🚀",
-            "IT" to "Fai una domanda 🚀",
-            "UA" to "Задати питання 🚀",
-            "VI" to "Đặt câu hỏi 🚀"
-        ),
-        "Zeptejte se na mixing nebo chatujte..." to mapOf(
-            "CS" to "Zeptejte se na mixing nebo chatujte...",
-            "EN" to "Ask about vocal tracks, mixing or chat...",
-            "SK" to "Opýtajte sa na mixing alebo chatujte...",
-            "DE" to "Fragen Sie nach Mixen oder chatten...",
-            "ES" to "Pregunta sobre mezclas o chatea...",
-            "FR" to "Demander sur le mixage ou discuter...",
-            "PL" to "Zapytaj o miksowanie lub czatuj...",
-            "IT" to "Chiedi del missaggio o chatta...",
-            "UA" to "Запитати про міксування або чат...",
-            "VI" to "Hỏi về phối nhạc hoặc nhắn tin..."
-        ),
-        "KOLABORATIVNÍ TÝMOVÝ CHAT" to mapOf(
-            "CS" to "KOLABORATIVNÍ TÝMOVÝ CHAT",
-            "EN" to "TEAM CHAT & COLLABORATION",
-            "SK" to "KOLABORATÍVNY TÍMOVÝ CHAT",
-            "DE" to "TEAMCHAT & ZUSAMMENARBEIT",
-            "ES" to "CHAT DE EQUIPO Y COLABORACIÓN",
-            "FR" to "CHAT D'ÉQUIPE & COLLABORATION",
-            "PL" to "CZAT ZESPOŁOWY I WSPÓŁPRACA",
-            "IT" to "CHAT DI GRUPPO E COLLABORAZIONE",
-            "UA" to "КОЛЕКТИВНИЙ ЧАТ ТА СПІВПРАЦЯ",
-            "VI" to "TRÒ CHUYỆN NHÓM & HỢP TÁC"
-        ),
-        "HLAVNÍ MULTITRACK ČASOVÁ OSA" to mapOf(
-            "CS" to "HLAVNÍ MULTITRACK ČASOVÁ OSA",
-            "EN" to "MAIN MULTI-TRACK AUDIO TIMELINE",
-            "SK" to "HLAVNÁ MULTITRACK ČASOVÁ OSA",
-            "DE" to "HAUPT-MULTITRACK-AUDIOZEITLEISTE",
-            "ES" to "LÍNEA DE TIEMPO MULTIPISTA PRINCIPAL",
-            "FR" to "LIGNE DE TEMPS MULTIPISTE PRINCIPALE",
-            "PL" to "GŁÓWNA OŚ CZASU MULTITRACK",
-            "IT" to "LINEA TEMPORALE MULTITRACCIA PRINCIPALE",
-            "UA" to "ГОЛОВНА МУЛЬТИТРЕКОВА ЧАСОВА ШКАЛА",
-            "VI" to "DÒNG THỜI GIAN NHẠC ĐA TRACK CHÍNH"
-        ),
-        "FONDY & LICENČNÍ STŘEDISKO" to mapOf(
-            "CS" to "FONDY & LICENČNÍ STŘEDISKO",
-            "EN" to "MUSIC RIGHTS & COMMERCIAL LICENSING",
-            "SK" to "FONDY & LICENČNÉ STREDISKO",
-            "DE" to "LIZENZZENTRUM & MUSIKRECHTE",
-            "ES" to "CENTRO DE DERECHOS DE AUTOR Y LICENCIAS",
-            "FR" to "CENTRE DES DROITS & LICENCES COMMERCIALES",
-            "PL" to "CENTRUM LICENCJI I PRAW AUTORSKICH",
-            "IT" to "CENTRO DIRITTI D'AUTORE E LICENZE",
-            "UA" to "ЦЕНТР ЛІЦЕНЗУВАННЯ ТА АВТОРСЬКИХ ПРАВ",
-            "VI" to "TRUNG TÂM BẢN QUYỀN & CẤP PHÉP"
-        ),
-        "PRÁVNÍ SOUHLAS S GDPR" to mapOf(
-            "CS" to "PRÁVNÍ SOUHLAS S GDPR",
-            "EN" to "GDPR COMPLIANCE & DATA PRIVACY",
-            "SK" to "PRÁVNY SÚHLAS S GDPR",
-            "DE" to "DSGVO-EINWILLIGUNG & DATENSCHUTZ",
-            "ES" to "CONSENTIMIENTO DE PRIVACIDAD GDPR",
-            "FR" to "SÉCURITÉ & CONFIDENTIALITÉ DES DONNÉES (RGPD)",
-            "PL" to "ZGODNOŚĆ Z RODO I OCHRONA DANYCH",
-            "IT" to "CONSENSO SULLA PRIVACY GDPR",
-            "UA" to "ЗГОДА НА ОБРОБКУ ДАНИХ (GDPR)",
-            "VI" to "TUÂN THỦ GDPR & BẢO MẬT DỮ LIỆU"
-        )
+enum class Language {
+    CZ, EN
+}
+
+object TranslationUtility {
+    private val _currentLanguage = MutableStateFlow(Language.CZ)
+    val currentLanguage: StateFlow<Language> = _currentLanguage
+
+    fun toggleLanguage() {
+        _currentLanguage.value = if (_currentLanguage.value == Language.CZ) Language.EN else Language.CZ
+    }
+
+    private val translations = mapOf(
+        "app_title" to mapOf(Language.CZ to "Spark Studio 🎧", Language.EN to "Spark Studio 🎧"),
+        "app_subtitle" to mapOf(Language.CZ to "● AI Multitrack & Video Studio", Language.EN to "● AI Multitrack & Video Studio"),
+        "active_project" to mapOf(Language.CZ to "AKTIVNÍ PROJEKT", Language.EN to "ACTIVE PROJECT"),
+        "choose_or_create" to mapOf(Language.CZ to "Zvolte nebo vytvořte píseň", Language.EN to "Select or create a song"),
+        "projects_btn" to mapOf(Language.CZ to "Projekty", Language.EN to "Projects"),
+        "new_btn" to mapOf(Language.CZ to "+ Nový", Language.EN to "+ New"),
+        "quick_guide" to mapOf(Language.CZ to "💡 RYCHLÝ PRŮVODCE STUDIEM", Language.EN to "💡 QUICK STUDIO GUIDE"),
+        "step_1_title" to mapOf(Language.CZ to "✍️ 1. TEXTY & TÉMA", Language.EN to "✍️ 1. LYRICS & TOPIC"),
+        "step_1_desc" to mapOf(Language.CZ to "Napište nebo vložte vlastní text písně dolů, nebo stiskněte AI TVORBA pro složení textu s Gemini.", Language.EN to "Type or paste your own lyrics below, or press AI GENERATE to write lyrics using Gemini."),
+        "step_2_title" to mapOf(Language.CZ to "🎛️ 2. MIX & EFEKTY", Language.EN to "🎛️ 2. MIX & EFFECTS"),
+        "step_2_desc" to mapOf(Language.CZ to "Zvolte náladu, efekt vokálu (např. Robot) a přírodní atmosféru (např. Rain) na ovládacím panelu.", Language.EN to "Choose a mood, vocal effect (e.g., Robot), and natural ambience (e.g., Rain) on the controls panel."),
+        "step_3_title" to mapOf(Language.CZ to "▶️ 3. LIVE SYNTÉZA", Language.EN to "▶️ 3. LIVE SYNTHESIS"),
+        "step_3_desc" to mapOf(Language.CZ to "Klikněte na zelené tlačítko 'PŘEHRÁT' v Mixéru. Náš offline syntezátor okamžitě vytvoří originální doprovod, basu a melodii generovanou přímo z vašich slov!", Language.EN to "Click the green 'PLAY' button in the Mixer. Our offline synthesizer will instantly create original backing, bass, and melody generated directly from your words!"),
+        "step_4_title" to mapOf(Language.CZ to "✉️ 4. EXPORT A REÁLNÉ VIDEO", Language.EN to "✉️ 4. EXPORT & REAL VIDEO"),
+        "step_4_desc" to mapOf(Language.CZ to "Stáhněte si hotový song ve formátu WAV/MP3, nebo vygenerujte plnohodnotné lyric video (MP4) s vizuálním ekvalizérem a běžícími texty!", Language.EN to "Download your finished song as WAV/MP3, or generate a full-featured lyric video (MP4) complete with visual equalizer and scrolling text!"),
+        "load_promo_btn" to mapOf(Language.CZ to "▶ NAČÍST NOVINKU 'PROJEKT JEDNA DVĚ TŘI' ⚡", Language.EN to "▶ LOAD NEW FAVORITE 'PROJECT ONE TWO THREE' ⚡"),
+        
+        "nav_home" to mapOf(Language.CZ to "Domů", Language.EN to "Home"),
+        "nav_studio" to mapOf(Language.CZ to "Studio", Language.EN to "Studio"),
+        "nav_video" to mapOf(Language.CZ to "Video", Language.EN to "Video"),
+        "nav_chat" to mapOf(Language.CZ to "Chat", Language.EN to "Chat"),
+        "nav_market" to mapOf(Language.CZ to "Tržiště", Language.EN to "Market"),
+        "nav_profile" to mapOf(Language.CZ to "Můj Denuli", Language.EN to "My Denuli"),
+        
+        "lyrics_tab" to mapOf(Language.CZ to "NÁVRH TEXTU PÍSNĚ", Language.EN to "SONG LYRICS DESIGN"),
+        "lyrics_placeholder" to mapOf(Language.CZ to "Zadejte nebo vygeneruje text...", Language.EN to "Enter or generate lyrics..."),
+        "generate_lyrics_btn" to mapOf(Language.CZ to "AI Generovat Text ✨", Language.EN to "AI Generate Lyrics ✨"),
+        "topic_prompt" to mapOf(Language.CZ to "Námět písně (např. Láska ke hvězdám):", Language.EN to "Song theme (e.g. Love for the stars):"),
+        
+        "vibe_setup" to mapOf(Language.CZ to "NASTAVENÍ ZVUKU & ATMOSFÉRY", Language.EN to "SOUND & ATMOSPHERE SETUP"),
+        "select_genre" to mapOf(Language.CZ to "Žánr (Zdroje zvuku):", Language.EN to "Genre (Sound Engine):"),
+        "vocal_effect" to mapOf(Language.CZ to "Efekt vokálu:", Language.EN to "Vocal effect:"),
+        "bg_ambience" to mapOf(Language.CZ to "Přírodní atmosféra:", Language.EN to "Natural ambience:"),
+        
+        "play_music" to mapOf(Language.CZ to "PŘEHRÁT SKLADBŮ 🎧", Language.EN to "PLAY COMPOSITION 🎧"),
+        "stop_music" to mapOf(Language.CZ to "ZASTAVIT ⏹", Language.EN to "STOP ⏹"),
+        "creating_audio" to mapOf(Language.CZ to "Syntetizuji zvuk...", Language.EN to "Synthesizing tone..."),
+        
+        "export_video" to mapOf(Language.CZ to "VYGENEROVAT VIDEOKLIP (MP4) 🎬", Language.EN to "GENERATE VIDEOCLIP (MP4) 🎬"),
+        "video_status" to mapOf(Language.CZ to "Vizuální studio:", Language.EN to "Visual studio:"),
+        "video_idle" to mapOf(Language.CZ to "Připraveno ke generování", Language.EN to "Ready to compile"),
+        "export_audio" to mapOf(Language.CZ to "STÁHNOUT WAV ⚙️", Language.EN to "DOWNLOAD WAV ⚙️"),
+        
+        "market_title" to mapOf(Language.CZ to "SPARK TRŽIŠTĚ", Language.EN to "SPARK MARKETPLACE"),
+        "market_sub" to mapOf(Language.CZ to "Kupte si profesionální beaty, vokální šablony a ambientní packy.", Language.EN to "Acquire premium beats, vocal filters, and sound expansion packs."),
+        "price" to mapOf(Language.CZ to "Cena:", Language.EN to "Price:"),
+        "purchased" to mapOf(Language.CZ to "Zakoupeno", Language.EN to "Purchased"),
+        "buy" to mapOf(Language.CZ to "Koupit", Language.EN to "Buy"),
+        
+        "chat_assistant" to mapOf(Language.CZ to "AI ASISTENT STUDIA", Language.EN to "STUDIO AI CO-WRITER"),
+        "chat_welcome" to mapOf(Language.CZ to "Ahoj! Jsem tvůj AI kreativní asistent. Zeptej se mě na cokoliv ohledně textů, aranží nebo jak ovládat hudební syntézu!", Language.EN to "Hello! I am your AI creative guide. Ask me anything about lyrics writing, arrangement, or the sound engine!"),
+        "send" to mapOf(Language.CZ to "Odeslat", Language.EN to "Send"),
+        "chat_hint" to mapOf(Language.CZ to "Napiš zprávu...", Language.EN to "Write a message..."),
+        
+        "legal_title" to mapOf(Language.CZ to "PODMÍNKY A SOUHLASY", Language.EN to "TERMS & VERIFICATION"),
+        "legal_desc" to mapOf(Language.CZ to "Podmínky služby vyžadují ověření věku pro přístup k pokročilému AI generování.", Language.EN to "Terms of service require age verification to access deep generative AI workflows."),
+        "age_verify" to mapOf(Language.CZ to "Potvrzuji, že mi je více než 15 let (nebo mám souhlas zákonného zástupce)", Language.EN to "I verify that I am over 15 years old (or have parental/guardian consent)"),
+        "github_web" to mapOf(Language.CZ to "Otevřít oficiální web na GitHubu 🌐", Language.EN to "Open official web on GitHub 🌐"),
+        "profile_title" to mapOf(Language.CZ to "PROFIL DENULI", Language.EN to "DENULI PROFILE"),
+        "stats" to mapOf(Language.CZ to "STATISTIKY TVORBY", Language.EN to "STUDIO STATISTICS"),
+        "total_projects" to mapOf(Language.CZ to "Celkem písní:", Language.EN to "Total songs:"),
+        "saved_projects" to mapOf(Language.CZ to "ULOŽENÉ SKLADBY", Language.EN to "SAVED PROJECTS")
     )
 
-    /**
-     * Translates Czech phrases to target languages. Falls back to English if target language key does not exist.
-     */
-    fun translate(inputText: String, lang: String): String {
-        val entry = translationDictionary[inputText] ?: return inputText
-        return entry[lang] ?: entry["EN"] ?: inputText
-    }
-
-    /**
-     * Resolves localized text using a ternary-like multi language selector for 10 languages
-     */
-    fun resolve(lang: String, cs: String, en: String): String {
-        return when (lang) {
-            "CS" -> cs
-            "EN" -> en
-            "SK" -> translateSlovak(cs)
-            "DE" -> translateGerman(en)
-            "ES" -> translateSpanish(en)
-            "FR" -> translateFrench(en)
-            "PL" -> translatePolish(cs)
-            "IT" -> translateItalian(en)
-            "UA" -> translateUkrainian(en)
-            "VI" -> translateVietnamese(en)
-            else -> en
-        }
-    }
-
-    private fun translateSlovak(cs: String): String {
-        return cs
-            .replace("Můj", "Môj")
-            .replace("Domů", "Domov")
-            .replace("účetnictví", "účtovníctvo")
-            .replace("Uložit", "Uložiť")
-            .replace("Zrušit", "Zrušiť")
-            .replace("Zavřít", "Zatvoriť")
-            .replace("Vytvořit", "Vytvoriť")
-            .replace("Nahrávání", "Nahrávanie")
-            .replace("projekt", "projekt")
-            .replace("pomoc", "pomoc")
-            .replace("Aktivní", "Aktívny")
-            .replace("Nastavení", "Nastavenie")
-    }
-
-    private fun translateGerman(en: String): String {
-        return when {
-            en.contains("PURCHASE", true) -> "INTEGRIERTE EINKÄUFE"
-            en.contains("TIMELINE", true) -> "ZEITLEISTE DES STUDIOS"
-            en.contains("CHAT", true) -> "TEAM-DISKUSSIONEN"
-            en.contains("MARKET", true) -> "MARKTPLATZ & FONTS"
-            en.contains("SETTINGS", true) -> "EINSTELLUNGEN"
-            en.contains("AI", true) -> "KÜNSTLICHE INTELLIGENZ"
-            en.contains("PREMIUM", true) -> "PREMIUM LIZENZ"
-            en.contains("PRIVACY", true) -> "DATENSCHUTZ CENTER"
-            else -> en
-        }
-    }
-
-    private fun translateSpanish(en: String): String {
-        return when {
-            en.contains("PURCHASE", true) -> "REGISTRO DE COMPRAS"
-            en.contains("TIMELINE", true) -> "LÍNEA DE TIEMPO DEL ESTUDIO"
-            en.contains("CHAT", true) -> "CHAT DE COLABORACIÓN IA"
-            en.contains("MARKET", true) -> "MERCADO FINANCIERO"
-            en.contains("SETTINGS", true) -> "AJUSTES"
-            en.contains("AI", true) -> "INTELIGENCIA ARTIFICIAL"
-            en.contains("PREMIUM", true) -> "LICENCIA DE EXPORTACIÓN VIP"
-            else -> en
-        }
-    }
-
-    private fun translateFrench(en: String): String {
-        return when {
-            en.contains("PURCHASE", true) -> "REGISTRE SÉCURISÉ DES ACHATS"
-            en.contains("TIMELINE", true) -> "TABLE DE MIXAGE MULTIPISTE"
-            en.contains("CHAT", true) -> "DISCUSSION INTERACTIVE"
-            en.contains("MARKET", true) -> "BOUTIQUE D'EFFETS"
-            en.contains("SETTINGS", true) -> "CONFIGURATIONS"
-            else -> en
-        }
-    }
-
-    private fun translatePolish(cs: String): String {
-        return cs
-            .replace("Můj", "Mój")
-            .replace("Domů", "Główny")
-            .replace("Skladby", "Utwory")
-            .replace("Uložit", "Zapisz")
-            .replace("Zrušit", "Anuluj")
-    }
-
-    private fun translateItalian(en: String): String {
-        return when {
-            en.contains("PURCHASE", true) -> "STORICO TRANSAZIONI"
-            en.contains("TIMELINE", true) -> "SCALETTA TRACCE STUDIO"
-            else -> en
-        }
-    }
-
-    private fun translateUkrainian(en: String): String {
-        return when {
-            en.contains("PURCHASE", true) -> "ОБЛІК ОПЛАТ PLAY"
-            en.contains("TIMELINE", true) -> "СТУДІЙНА ТАЙМЛАЙН-ШКАЛА"
-            else -> en
-        }
-    }
-
-    private fun translateVietnamese(en: String): String {
-        return when {
-            en.contains("PURCHASE", true) -> "QUẢN LÝ GIAO DỊCH"
-            en.contains("TIMELINE", true) -> "TAYM-LAI MULTITRACK"
-            else -> en
-        }
+    fun get(key: String): String {
+        return translations[key]?.get(_currentLanguage.value) ?: key
     }
 }

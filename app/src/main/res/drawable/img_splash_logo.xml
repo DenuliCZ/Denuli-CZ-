@@ -1,0 +1,49 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="128dp"
+    android:height="128dp"
+    android:viewportWidth="128"
+    android:viewportHeight="128">
+
+    <!-- Background circle for a premium app icon look -->
+    <path
+        android:pathData="M64,64m-60,0a60,60 0,1 1,120 0a60,60 0,1 1,-120 0"
+        android:fillColor="#261D45" />
+
+    <!-- Sound Waves on Left and Right -->
+    <path
+        android:pathData="M35,44 Q38,64 35,84"
+        android:strokeColor="#00FFC2"
+        android:strokeWidth="4"
+        android:strokeLineCap="round" />
+    <path
+        android:pathData="M25,52 Q28,64 25,76"
+        android:strokeColor="#8E8CA4"
+        android:strokeWidth="4"
+        android:strokeLineCap="round" />
+
+    <path
+        android:pathData="M93,44 Q90,64 93,84"
+        android:strokeColor="#00FFC2"
+        android:strokeWidth="4"
+        android:strokeLineCap="round" />
+    <path
+        android:pathData="M103,52 Q100,64 103,76"
+        android:strokeColor="#8E8CA4"
+        android:strokeWidth="4"
+        android:strokeLineCap="round" />
+
+    <!-- Shining four-point Star / Spark in the center -->
+    <path
+        android:pathData="M64,28 Q64,64 100,64 Q64,64 64,100 Q64,64 28,64 Q64,64 64,28 Z"
+        android:fillColor="#FF007F" />
+    
+    <!-- Outer accent star highlight -->
+    <path
+        android:pathData="M64,44 Q64,64 84,64 Q64,64 64,84 Q64,64 44,64 Q64,64 64,44 Z"
+        android:fillColor="#00FFC2" />
+
+    <path
+        android:pathData="M64,54 Q64,64 74,64 Q64,64 64,74 Q64,64 54,64 Q64,64 64,54 Z"
+        android:fillColor="#FFFFFF" />
+
+</vector>

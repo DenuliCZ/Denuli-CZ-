@@ -5,17 +5,7 @@ import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
 
-@Database(
-    entities = [
-        Project::class,
-        CommunityTrack::class,
-        ChatMsg::class,
-        AiSettingsTemplate::class,
-        PurchaseTransaction::class
-    ],
-    version = 3,
-    exportSchema = false
-)
+@Database(entities = [Project::class, MarketplaceItem::class, AudioTrack::class], version = 6, exportSchema = false)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun studioDao(): StudioDao
 
@@ -28,7 +18,7 @@ abstract class AppDatabase : RoomDatabase() {
                 val instance = Room.databaseBuilder(
                     context.applicationContext,
                     AppDatabase::class.java,
-                    "denuli_studio_db"
+                    "spark_studio_db"
                 )
                 .fallbackToDestructiveMigration()
                 .build()

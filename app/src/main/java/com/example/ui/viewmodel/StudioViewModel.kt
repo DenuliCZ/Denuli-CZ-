@@ -1,1221 +1,1707 @@
 package com.example.ui.viewmodel
 
 import android.content.Context
+import android.content.Intent
+import android.media.MediaPlayer
+import android.util.Log
+import android.widget.Toast
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
-import com.example.data.database.AiSettingsTemplate
-import com.example.data.database.AppDatabase
-import com.example.data.database.ChatMsg
-import com.example.data.database.CommunityTrack
+import com.example.data.database.MarketplaceItem
 import com.example.data.database.Project
-import com.example.data.database.PurchaseTransaction
+import com.example.data.database.AudioTrack
+import com.example.data.network.GeminiClient
 import com.example.data.repository.StudioRepository
+import com.example.service.ExportForegroundService
+import com.example.util.ExportFileHelper
+import com.example.util.Language
+import com.example.util.TranslationUtility
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharingStarted
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.stateIn
-import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.io.File
 
 private val Context.preferencesDataStore by preferencesDataStore(name = "studio_settings")
 
 class StudioViewModel(private val repository: StudioRepository) : ViewModel() {
 
-    // Language State: CS (Czech) or EN (English)
-    private val _selectedLanguage = MutableStateFlow("CS")
-    val selectedLanguage: StateFlow<String> = _selectedLanguage.asStateFlow()
+    private val TAG = "StudioViewModel"
 
-    // Theme State: true for Dark Mode (Mystický soumrak), false for Light Mode (Elegantní krémový)
-    private val _isDarkMode = MutableStateFlow(true)
-    val isDarkMode: StateFlow<Boolean> = _isDarkMode.asStateFlow()
+    // --- State declarations ---
+    val allProjects: StateFlow<List<Project>> = repository.allProjects
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    fun switchTheme(dark: Boolean) {
-        _isDarkMode.value = dark
-    }
+    val allMarketplaceItems: StateFlow<List<MarketplaceItem>> = repository.allMarketplaceItems
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    // Screen State Tracker
-    private val _currentTab = MutableStateFlow("Studio") // Studio, Video, Community, Cloud
-    val currentTab: StateFlow<String> = _currentTab.asStateFlow()
-
-    // Active Project Configuration
     private val _activeProject = MutableStateFlow<Project?>(null)
-    val activeProject: StateFlow<Project?> = _activeProject.asStateFlow()
+    val activeProject: StateFlow<Project?> = _activeProject
 
-    // Playback Progress & Levels
-    private val _isPlaying = MutableStateFlow(false)
-    val isPlaying: StateFlow<Boolean> = _isPlaying.asStateFlow()
+    private val activeMediaPlayers = mutableMapOf<Int, MediaPlayer>()
+    private var mediaRecorder: android.media.MediaRecorder? = null
+    private val currentlyRecordingTrackId = MutableStateFlow<Int?>(null)
+    val recordingTrackId: StateFlow<Int?> = currentlyRecordingTrackId.asStateFlow()
 
-    private val _isRecording = MutableStateFlow(false)
-    val isRecording: StateFlow<Boolean> = _isRecording.asStateFlow()
+    private val _isRecordingState = MutableStateFlow(false)
+    val isRecordingState: StateFlow<Boolean> = _isRecordingState.asStateFlow()
 
-    private val _playbackProgress = MutableStateFlow(0f)
-    val playbackProgress: StateFlow<Float> = _playbackProgress.asStateFlow()
+    private var tempRecordingFile: File? = null
 
-    // Waveform simulation data (for multitrack visualization)
-    private val _vocalWaveform = MutableStateFlow(FloatArray(40) { 0.1f })
-    val vocalWaveform: StateFlow<FloatArray> = _vocalWaveform.asStateFlow()
+    @OptIn(ExperimentalCoroutinesApi::class)
+    val activeProjectTracks: StateFlow<List<AudioTrack>> = _activeProject
+        .flatMapLatest { project ->
+            if (project != null) {
+                repository.getTracksForProject(project.id)
+            } else {
+                flowOf(emptyList())
+            }
+        }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    private val _synthWaveform = MutableStateFlow(FloatArray(40) { 0.2f })
-    val synthWaveform: StateFlow<FloatArray> = _synthWaveform.asStateFlow()
+    private val _isAgeVerified = MutableStateFlow(false)
+    val isAgeVerified: StateFlow<Boolean> = _isAgeVerified
 
-    private val _drumsWaveform = MutableStateFlow(FloatArray(40) { 0.15f })
-    val drumsWaveform: StateFlow<FloatArray> = _drumsWaveform.asStateFlow()
-
-    private val _natureWaveform = MutableStateFlow(FloatArray(40) { 0.05f })
-    val natureWaveform: StateFlow<FloatArray> = _natureWaveform.asStateFlow()
-
-    // Track Volume Controls
-    private val _vocalVolume = MutableStateFlow(0.8f)
-    val vocalVolume: StateFlow<Float> = _vocalVolume.asStateFlow()
-
-    private val _synthVolume = MutableStateFlow(0.6f)
-    val synthVolume: StateFlow<Float> = _synthVolume.asStateFlow()
-
-    private val _drumsVolume = MutableStateFlow(0.7f)
-    val drumsVolume: StateFlow<Float> = _drumsVolume.asStateFlow()
-
-    private val _natureVolume = MutableStateFlow(0.4f)
-    val natureVolume: StateFlow<Float> = _natureVolume.asStateFlow()
-
-    // AI Generation Status trackers
     private val _isGeneratingLyrics = MutableStateFlow(false)
-    val isGeneratingLyrics: StateFlow<Boolean> = _isGeneratingLyrics.asStateFlow()
+    val isGeneratingLyrics: StateFlow<Boolean> = _isGeneratingLyrics
 
-    private val _aiLyricsResult = MutableStateFlow("")
-    val aiLyricsResult: StateFlow<String> = _aiLyricsResult.asStateFlow()
+    private val _isGeneratingCompleteSong = MutableStateFlow(false)
+    val isGeneratingCompleteSong: StateFlow<Boolean> = _isGeneratingCompleteSong
 
-    private val _isGeneratingTips = MutableStateFlow(false)
-    val isGeneratingTips: StateFlow<Boolean> = _isGeneratingTips.asStateFlow()
+    private val _completeSongProgress = MutableStateFlow(0f)
+    val completeSongProgress: StateFlow<Float> = _completeSongProgress
 
-    private val _aiTipsResult = MutableStateFlow("")
-    val aiTipsResult: StateFlow<String> = _aiTipsResult.asStateFlow()
+    private val _userCredits = MutableStateFlow(500)
+    val userCredits: StateFlow<Int> = _userCredits
 
-    private val _isSendingChat = MutableStateFlow(false)
-    val isSendingChat: StateFlow<Boolean> = _isSendingChat.asStateFlow()
+    private val _communitySalesAlert = MutableStateFlow<String?>(null)
+    val communitySalesAlert: StateFlow<String?> = _communitySalesAlert
 
-    // Onboarding system status
-    val IS_FIRST_RUN_KEY = booleanPreferencesKey("is_first_run")
-    private val _showOnboarding = MutableStateFlow(true)
-    val showOnboarding: StateFlow<Boolean> = _showOnboarding.asStateFlow()
+    private val _isSynthesizingAudio = MutableStateFlow(false)
+    val isSynthesizingAudio: StateFlow<Boolean> = _isSynthesizingAudio
 
-    // --- AI STYLE BOX STATE PARAMETERS ---
-    private val _styleInfluencePct = MutableStateFlow(0.7f)
-    val styleInfluencePct: StateFlow<Float> = _styleInfluencePct.asStateFlow()
+    private val _isVideoGenerating = MutableStateFlow(false)
+    val isVideoGenerating: StateFlow<Boolean> = _isVideoGenerating
 
-    private val _vocalDelayMs = MutableStateFlow(150L)
-    val vocalDelayMs: StateFlow<Long> = _vocalDelayMs.asStateFlow()
+    private val _isGeneratingAIVideoTimeline = MutableStateFlow(false)
+    val isGeneratingAIVideoTimeline: StateFlow<Boolean> = _isGeneratingAIVideoTimeline
 
-    private val _backgroundMusicMix = MutableStateFlow(0.5f)
-    val backgroundMusicMix: StateFlow<Float> = _backgroundMusicMix.asStateFlow()
+    private val _audioProgress = MutableStateFlow(0f)
+    val audioProgress: StateFlow<Float> = _audioProgress
 
-    private val _isCloudMusicGenerating = MutableStateFlow(false)
-    val isCloudMusicGenerating: StateFlow<Boolean> = _isCloudMusicGenerating.asStateFlow()
+    private val _videoProgress = MutableStateFlow(0f)
+    val videoProgress: StateFlow<Float> = _videoProgress
 
-    // Style Mixing Parameters
-    private val _styleMixingA = MutableStateFlow("Rock")
-    val styleMixingA: StateFlow<String> = _styleMixingA.asStateFlow()
+    private val _videoGenerationError = MutableStateFlow<String?>(null)
+    val videoGenerationError: StateFlow<String?> = _videoGenerationError
 
-    private val _styleMixingB = MutableStateFlow("Synthwave")
-    val styleMixingB: StateFlow<String> = _styleMixingB.asStateFlow()
+    private val _isPlaying = MutableStateFlow(false)
+    val isPlaying: StateFlow<Boolean> = _isPlaying
 
-    private val _styleMixingWeightA = MutableStateFlow(0.7f)
-    val styleMixingWeightA: StateFlow<Float> = _styleMixingWeightA.asStateFlow()
+    private val _chatMessages = MutableStateFlow<List<Pair<String, Boolean>>>(listOf(
+        TranslationUtility.get("chat_welcome") to false // false = assistant, true = user
+    ))
+    val chatMessages: StateFlow<List<Pair<String, Boolean>>> = _chatMessages
 
-    private val _vocalLyricalLanguage = MutableStateFlow("CS")
-    val vocalLyricalLanguage: StateFlow<String> = _vocalLyricalLanguage.asStateFlow()
+    private val _isChatLoading = MutableStateFlow(false)
+    val isChatLoading: StateFlow<Boolean> = _isChatLoading
 
-    // Vocal Synthesis Engine Setup State Fields
-    private val _vocalScaleType = MutableStateFlow("Muž")
-    val vocalScaleType: StateFlow<String> = _vocalScaleType.asStateFlow()
+    private val _isExportingProject = MutableStateFlow(false)
+    val isExportingProject: StateFlow<Boolean> = _isExportingProject.asStateFlow()
 
-    private val _vocalEmotion = MutableStateFlow("Neutrální")
-    val vocalEmotion: StateFlow<String> = _vocalEmotion.asStateFlow()
+    private val _exportProjectProgress = MutableStateFlow(0f)
+    val exportProjectProgress: StateFlow<Float> = _exportProjectProgress.asStateFlow()
 
-    // Custom Font Collections
-    private val _fontCollections = MutableStateFlow(listOf("Denuli Serif", "Brutal Techno", "Retro Comic", "Elegant Classy", "Space Grotesk"))
-    val fontCollections: StateFlow<List<String>> = _fontCollections.asStateFlow()
+    private var mediaPlayer: MediaPlayer? = null
 
-    // GDPR & Privacy Policy states (Article 6 and Article 7 GDPR Consent)
-    private val _gdprAccepted = MutableStateFlow<Boolean?>(null) // null = Undecided, show banner
-    val gdprAccepted: StateFlow<Boolean?> = _gdprAccepted.asStateFlow()
-
-    private val _gdprConsentCloud = MutableStateFlow(true)
-    val gdprConsentCloud: StateFlow<Boolean> = _gdprConsentCloud.asStateFlow()
-
-    private val _gdprConsentAi = MutableStateFlow(true)
-    val gdprConsentAi: StateFlow<Boolean> = _gdprConsentAi.asStateFlow()
-
-    private val _gdprConsentCommunity = MutableStateFlow(true)
-    val gdprConsentCommunity: StateFlow<Boolean> = _gdprConsentCommunity.asStateFlow()
-
-    private val _gdprConsentTelemetry = MutableStateFlow(false)
-    val gdprConsentTelemetry: StateFlow<Boolean> = _gdprConsentTelemetry.asStateFlow()
-
-    // --- PREMIUM SUBSCRIPTION & GOOGLE PLAY BILLING STATES ---
-    private val _isPremium = MutableStateFlow(false)
-    val isPremium: StateFlow<Boolean> = _isPremium.asStateFlow()
-
-    private val _aiGenerationsUsedToday = MutableStateFlow(0)
-    val aiGenerationsUsedToday: StateFlow<Int> = _aiGenerationsUsedToday.asStateFlow()
-
-    private val _showPaywallDialog = MutableStateFlow(false)
-    val showPaywallDialog: StateFlow<Boolean> = _showPaywallDialog.asStateFlow()
-
-    // --- UGC CONTENT FILTERING & SAFETY ---
-    private val _blockedUsers = MutableStateFlow<Set<String>>(emptySet())
-    val blockedUsers: StateFlow<Set<String>> = _blockedUsers.asStateFlow()
-
-    // --- CREATOR REGISTRATION & COMPLIANCE STATES ---
-    private val _creatorName = MutableStateFlow("")
-    val creatorName: StateFlow<String> = _creatorName.asStateFlow()
-
-    private val _creatorAge = MutableStateFlow(25)
-    val creatorAge: StateFlow<Int> = _creatorAge.asStateFlow()
-
-    private val _creatorParentalConsentChecked = MutableStateFlow(false)
-    val creatorParentalConsentChecked: StateFlow<Boolean> = _creatorParentalConsentChecked.asStateFlow()
-
-    private val _creatorParentName = MutableStateFlow("")
-    val creatorParentName: StateFlow<String> = _creatorParentName.asStateFlow()
-
-    private val _creatorCopyrightAgreed = MutableStateFlow(false)
-    val creatorCopyrightAgreed: StateFlow<Boolean> = _creatorCopyrightAgreed.asStateFlow()
-
-    private val _isCreatorRegistered = MutableStateFlow(false)
-    val isCreatorRegistered: StateFlow<Boolean> = _isCreatorRegistered.asStateFlow()
-
-    // --- LONG VIDEO EDITOR OPTIMIZATIONS (Fairy tales & Podcast 30m+ handling) ---
-    private val _isProxyEditingOnly = MutableStateFlow(true)
-    val isProxyEditingOnly: StateFlow<Boolean> = _isProxyEditingOnly.asStateFlow()
-
-    private val _isSequentialExporting = MutableStateFlow(false)
-    val isSequentialExporting: StateFlow<Boolean> = _isSequentialExporting.asStateFlow()
-
-    private val _sequentialExportProgress = MutableStateFlow(0f)
-    val sequentialExportProgress: StateFlow<Float> = _sequentialExportProgress.asStateFlow()
-
-    private val _sequentialExportStage = MutableStateFlow("")
-    val sequentialExportStage: StateFlow<String> = _sequentialExportStage.asStateFlow()
-
-    private val _savedRamMegabytes = MutableStateFlow(0)
-    val savedRamMegabytes: StateFlow<Int> = _savedRamMegabytes.asStateFlow()
-
-    private val _isAudioStreamingActive = MutableStateFlow(false)
-    val isAudioStreamingActive: StateFlow<Boolean> = _isAudioStreamingActive.asStateFlow()
-
-    private val _audioStreamingBufferChunkIndex = MutableStateFlow(0)
-    val audioStreamingBufferChunkIndex: StateFlow<Int> = _audioStreamingBufferChunkIndex.asStateFlow()
-
-    private val _audioStreamingBufferedChunks = MutableStateFlow(booleanArrayOf(true, true, false, false, false, false))
-    val audioStreamingBufferedChunks: StateFlow<BooleanArray> = _audioStreamingBufferedChunks.asStateFlow()
-
-    private val _streamingIsBuffering = MutableStateFlow(false)
-    val streamingIsBuffering: StateFlow<Boolean> = _streamingIsBuffering.asStateFlow()
-
-    // Project fields temporarily cached for form input
-    val projectTitleField = MutableStateFlow("New Masterpiece")
-    val projectGenreField = MutableStateFlow("Pop")
-    val stylePromptField = MutableStateFlow("energetic, modern, deep chords")
-    val excludedPromptField = MutableStateFlow("sad, slow, low fidelity")
-    val lyricPromptField = MutableStateFlow("love, late night drives under stars")
-    val projectBpmField = MutableStateFlow(120)
-
-    // Database state collections
-    val projectsList: StateFlow<List<Project>> = repository.allProjects
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
-
-    val communityFeed: StateFlow<List<CommunityTrack>> = repository.trendingTracks
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
-
-    val chatMessagesList: StateFlow<List<ChatMsg>> = repository.chatMessages
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
-
-    val savedTemplatesList: StateFlow<List<AiSettingsTemplate>> = repository.settingsTemplates
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
-
-    val purchaseTransactionsList: StateFlow<List<PurchaseTransaction>> = repository.allTransactions
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
-
-    private val _aiHelpBotResponse = MutableStateFlow<String>("")
-    val aiHelpBotResponse: StateFlow<String> = _aiHelpBotResponse.asStateFlow()
-
-    private val _isAiHelpBotLoading = MutableStateFlow<Boolean>(false)
-    val isAiHelpBotLoading: StateFlow<Boolean> = _isAiHelpBotLoading.asStateFlow()
-
-    fun askAiAssistantQuickHelp(prompt: String) {
-        if (prompt.trim().isEmpty()) return
-        viewModelScope.launch(Dispatchers.IO) {
-            _isAiHelpBotLoading.value = true
-            _aiHelpBotResponse.value = ""
-            try {
-                val fullSystemPrompt = "Jste Denuli Studio AI asistent pro pomoc uživatelům (česká odpověď, přátelský, motivující, stručný, dává praktické rady k mixování hudby, exportu, autorským právům, GDPR a nastavení projektu)."
-                val response = repository.askAiAssistant(prompt, "System Instructions: $fullSystemPrompt")
-                _aiHelpBotResponse.value = response
-            } catch (e: Exception) {
-                _aiHelpBotResponse.value = "Omlouvám se, došlo k chybě při spojení s AI: ${e.message}"
-            } finally {
-                _isAiHelpBotLoading.value = false
+    fun initializeOnboarding(context: Context) {
+        viewModelScope.launch {
+            val isVerifiedKey = booleanPreferencesKey("is_age_verified")
+            context.preferencesDataStore.data.map { prefs ->
+                prefs[isVerifiedKey] ?: false
+            }.collect { verified ->
+                _isAgeVerified.value = verified
             }
         }
+        val prefs = context.getSharedPreferences("spark_studio_prefs", Context.MODE_PRIVATE)
+        _userCredits.value = prefs.getInt("user_credits", 500)
+        prepopulateMarketIfNeeded()
     }
 
-    init {
-        // Initialize timeline and simulation clock
-        viewModelScope.launch(Dispatchers.Default) {
-            while (true) {
-                if (_isPlaying.value) {
-                    _playbackProgress.value = (_playbackProgress.value + 0.02f)
-                    if (_playbackProgress.value >= 1f) {
-                        _playbackProgress.value = 0f
-                        _isPlaying.value = false
-                    }
-                    // Jitter sound amplitudes for visual waveforms
-                    _vocalWaveform.value = FloatArray(40) { (0.1f + (Math.random().toFloat() * _vocalVolume.value)).coerceIn(0f, 1f) }
-                    _synthWaveform.value = FloatArray(40) { (0.2f + (Math.random().toFloat() * _synthVolume.value)).coerceIn(0f, 1f) }
-                    _drumsWaveform.value = FloatArray(40) { (0.15f + (Math.random().toFloat() * _drumsVolume.value)).coerceIn(0f, 1f) }
-                    _natureWaveform.value = FloatArray(40) { (0.05f + (Math.random().toFloat() * _natureVolume.value)).coerceIn(0f, 1f) }
-                }
-                if (_isRecording.value) {
-                    _vocalWaveform.value = FloatArray(40) { (0.1f + (Math.random().toFloat() * _vocalVolume.value * 1.5f)).coerceIn(0f, 1f) }
-                }
-                delay(120)
-            }
-        }
-
-        // Insert some default items into database if they are empty
-        viewModelScope.launch(Dispatchers.IO) {
-            setupInitialDatabaseSeed()
-        }
+    fun updateUserCredits(context: Context, credits: Int) {
+        _userCredits.value = credits
+        val prefs = context.getSharedPreferences("spark_studio_prefs", Context.MODE_PRIVATE)
+        prefs.edit().putInt("user_credits", credits).apply()
     }
 
-    private suspend fun setupInitialDatabaseSeed() {
-        // Seed default chat message if empty
-        delay(1000)
-        // Feed mock community track representing trending song from Denuli-CZ
-        repository.saveCommunityTrack(
-            CommunityTrack(
-                title = "Golden Sunset Dreams",
-                author = "Denuli-CZ",
-                genre = "Tropical House",
-                lyrics = "[Verse] Krásná noc pod hvězdami, zpíváme si sami...\n[Chorus] Srdce hraje dnem i nocí, máme to ve své moci!",
-                likes = 428,
-                commentsRaw = "Denuli-CZ: Úžasné vokály!;Filip: Skvělý letní hit!;Denisa: Krásná barva hlasu a ty zvuky přírody jsou luxusní!",
-                isForSale = true,
-                priceCzk = 12000.00,
-                customLicense = "Denuli Studio Pro License",
-                videoTemplate = "Retro Sunset",
-                soundSampleType = "Full HD Multi-track Mix"
-            )
-        )
-        repository.saveCommunityTrack(
-            CommunityTrack(
-                title = "City Neon Beats",
-                author = "CyberMaster",
-                genre = "Synthwave",
-                lyrics = "[Chorus] Electric lines flashing in your eyes...",
-                likes = 184,
-                commentsRaw = "Denuli-CZ: Moc fajn retrowave atmosféra, zkus trošku zvednout zpoždění vokálu.;Tonda: Super pro noční jízdy.",
-                isForSale = false,
-                priceCzk = 0.0,
-                customLicense = "BY-NC Creative Commons"
-            )
-        )
-
-        repository.saveChatMessage(
-            ChatMsg(
-                sender = "AI Master Coach",
-                message = "Vítejte v Denuli Studio! Vytvořte nový multitrack projekt, zapněte nahrávání nástrojů a nechte se inspirovat umělou inteligencí.",
-                isAiAssistant = true
-            )
-        )
+    fun clearSalesAlert() {
+        _communitySalesAlert.value = null
     }
 
-    // Setters
-    fun switchLanguage(lang: String) {
-        _selectedLanguage.value = lang
-    }
-
-    fun setTab(tab: String) {
-        _currentTab.value = tab
-    }
-
-    fun toggleOnboarding() {
-        _showOnboarding.value = !_showOnboarding.value
-    }
-
-    fun setStyleInfluencePct(v: Float) {
-        _styleInfluencePct.value = v
-    }
-
-    fun setVocalDelayMs(d: Long) {
-        _vocalDelayMs.value = d
-        _activeProject.value?.let { p ->
-            saveProjectFieldsSilently(p.copy(vocalDelayMs = d))
-        }
-    }
-
-    fun setBackgroundMusicMix(m: Float) {
-        _backgroundMusicMix.value = m
-        _activeProject.value?.let { p ->
-            saveProjectFieldsSilently(p.copy(backgroundMusicMix = m))
-        }
-    }
-
-    fun setStyleMixingA(s: String) { _styleMixingA.value = s }
-    fun setStyleMixingB(s: String) { _styleMixingB.value = s }
-    fun setStyleMixingWeightA(w: Float) { _styleMixingWeightA.value = w }
-    fun setVocalLyricalLanguage(l: String) { _vocalLyricalLanguage.value = l }
-    fun setVocalScaleType(t: String) { _vocalScaleType.value = t }
-    fun setVocalEmotion(e: String) { _vocalEmotion.value = e }
-
-    // --- Billing Helper Reference ---
-    var billingHelper: com.example.billing.PlayBillingHelper? = null
-
-    fun setShowPaywallDialog(show: Boolean) {
-        _showPaywallDialog.value = show
-    }
-
-    fun setPremiumStatus(premium: Boolean) {
-        _isPremium.value = premium
-    }
-
-    fun initPremiumStatus(context: Context) {
-        val prefs = context.getSharedPreferences("denuli_studio_billing_prefs", Context.MODE_PRIVATE)
-        val isBypassed = prefs.getBoolean("developer_bypass_premium", false)
-        _isPremium.value = isBypassed
-
-        // Load creator profile details and age compliance
-        _creatorName.value = prefs.getString("creator_name", "") ?: ""
-        _creatorAge.value = prefs.getInt("creator_age", 25)
-        _creatorParentalConsentChecked.value = prefs.getBoolean("creator_parental_consent", false)
-        _creatorParentName.value = prefs.getString("creator_parent_name", "") ?: ""
-        _creatorCopyrightAgreed.value = prefs.getBoolean("creator_copyright_agreed", false)
-        _isCreatorRegistered.value = prefs.getBoolean("is_creator_registered", false)
-    }
-
-    fun registerCreatorProfile(
-        context: Context,
-        name: String,
-        age: Int,
-        parentalConsent: Boolean,
-        parentName: String,
-        copyrightAgreed: Boolean
-    ) {
-        val prefs = context.getSharedPreferences("denuli_studio_billing_prefs", Context.MODE_PRIVATE)
-        prefs.edit().apply {
-            putString("creator_name", name)
-            putInt("creator_age", age)
-            putBoolean("creator_parental_consent", parentalConsent)
-            putString("creator_parent_name", parentName)
-            putBoolean("creator_copyright_agreed", copyrightAgreed)
-            putBoolean("is_creator_registered", true)
-            apply()
-        }
-        _creatorName.value = name
-        _creatorAge.value = age
-        _creatorParentalConsentChecked.value = parentalConsent
-        _creatorParentName.value = parentName
-        _creatorCopyrightAgreed.value = copyrightAgreed
-        _isCreatorRegistered.value = true
-    }
-
-    fun toggleSimulatedPremium(context: Context): Boolean {
-        val prefs = context.getSharedPreferences("denuli_studio_billing_prefs", Context.MODE_PRIVATE)
-        val currentBypass = prefs.getBoolean("developer_bypass_premium", false)
-        val newBypass = !currentBypass
-        prefs.edit().putBoolean("developer_bypass_premium", newBypass).apply()
-        _isPremium.value = newBypass
-        return newBypass
-    }
-
-    fun registerAiGenerationUsage(context: Context): Boolean {
-        if (_isPremium.value) return true
-        
-        val prefs = context.getSharedPreferences("denuli_studio_billing_prefs", Context.MODE_PRIVATE)
-        val todayStr = java.text.SimpleDateFormat("yyyyMMdd", java.util.Locale.getDefault()).format(java.util.Date())
-        val key = "ai_limit_$todayStr"
-        val count = prefs.getInt(key, 0)
-        
-        if (count >= 3) {
-            _showPaywallDialog.value = true
-            return false
-        }
-        
-        prefs.edit().putInt(key, count + 1).apply()
-        _aiGenerationsUsedToday.value = count + 1
-        return true
-    }
-
-    fun initAiGenerationUsageCount(context: Context) {
+    private fun prepopulateMarketIfNeeded() {
         viewModelScope.launch {
-            val prefs = context.getSharedPreferences("denuli_studio_billing_prefs", Context.MODE_PRIVATE)
-            val todayStr = java.text.SimpleDateFormat("yyyyMMdd", java.util.Locale.getDefault()).format(java.util.Date())
-            val key = "ai_limit_$todayStr"
-            _aiGenerationsUsedToday.value = prefs.getInt(key, 0)
-        }
-    }
-
-    fun reportUser(context: android.content.Context, username: String) {
-        android.widget.Toast.makeText(context, "Uživatel '$username' byl nahlášen moderátorům za UGC porušení. Děkujeme.", android.widget.Toast.LENGTH_LONG).show()
-    }
-
-    fun blockUser(context: android.content.Context, username: String) {
-        _blockedUsers.value = _blockedUsers.value + username
-        android.widget.Toast.makeText(context, "Uživatel '$username' byl zablokován. Již od něj neuvidíte žádné zprávy.", android.widget.Toast.LENGTH_LONG).show()
-    }
-
-    fun unblockUser(username: String) {
-        _blockedUsers.value = _blockedUsers.value - username
-    }
-
-    // Collaborative Project Sharing & Comments
-    fun sendProjectShareInChat(projectName: String, projectId: Int) {
-        viewModelScope.launch(Dispatchers.IO) {
-            val shareMsg = ChatMsg(
-                sender = "Uživatel (Denuli Fan)",
-                message = "Sdílí projekt: '$projectName' 🎨🎬",
-                isAiAssistant = false,
-                isProjectShare = true,
-                sharedProjectId = projectId
-            )
-            repository.saveChatMessage(shareMsg)
-        }
-    }
-
-    fun sendTimelineCommentInChat(projectId: Int, comment: String, timeSeconds: Int) {
-        viewModelScope.launch(Dispatchers.IO) {
-            val minutes = timeSeconds / 60
-            val seconds = timeSeconds % 60
-            val timestampFormatted = String.format("%02d:%02d", minutes, seconds)
-            
-            val commentMsg = ChatMsg(
-                sender = "Uživatel (Denuli Fan)",
-                message = "Komentář k časové ose v čase $timestampFormatted: \"$comment\"",
-                isAiAssistant = false,
-                isProjectShare = false,
-                sharedProjectId = projectId,
-                commentTimeSeconds = timeSeconds
-            )
-            repository.saveChatMessage(commentMsg)
-        }
-    }
-
-    fun initOnboarding(context: Context) {
-        viewModelScope.launch {
-            val isFirstRunVal = context.preferencesDataStore.data.map { prefs ->
-                prefs[IS_FIRST_RUN_KEY] ?: true
-            }.first()
-            _showOnboarding.value = isFirstRunVal
-        }
-    }
-
-    fun completeOnboarding(context: Context) {
-        viewModelScope.launch {
-            context.preferencesDataStore.edit { prefs ->
-                prefs[IS_FIRST_RUN_KEY] = false
-            }
-            _showOnboarding.value = false
-            loadDemoProject()
-        }
-    }
-
-    fun loadDemoProject() {
-        viewModelScope.launch(Dispatchers.IO) {
-            val demoProject = Project(
-                title = "Projekt Jedna Dvě Tři ⚡",
-                genre = "Synthwave Rock",
-                bpm = 128,
-                lyrics = """[Intro]
-[Driving synthwave bassline starts, suddenly joined by a massive, stomping rock drum beat and heavy guitar chords. The crowd chants in unison]
-(O-o-oh, Projekt Jedna Dvě Tři!)
-(O-o-oh, teď musíme jít!)
-
-[Verse 1]
-Kód v našich žilách začíná žít,
-zhasněte světla, čas začal jít.
-Sedmdesát procent je ocel a vzdor,
-zbytek je vesmír a neonový obzor.
-Stojíme v řadě, jeden velký proud,
-tuhle divokou řeku už nelze spláchnout.
-Z digitální mlhy vystupuje tvář,
-nad naším městem dnes plane nová zář.
-
-[Pre-Chorus]
-[Synthesizers build a fast arpeggio, electric guitars rise in a crescendo]
-Slyšíš ten tep? To je stroj, co má duši!
-Dneska ten krunýř ticha protrhnout musí!
-Společný nádech, síla miliónu těl,
-přichází to, co svět ještě neviděl!
-
-[Chorus]
-[Epic choral explosion, heavy guitar riffs combined with pulsing retro-synths]
-Projekt Jedna Dvě Tři – náš společný hlas!
-Když kytary hřmí a čas ztrácí svůj vzkaz!
-Syntetická noc a rockový den,
-zpíváme spolu ten největší sen!
-Jedna, dvě, tři – světla už svítí,
-v tomhle rytmu se nedá nic skrýti!
-
-[Verse 2]
-Kroky v davu duní jako basový tón,
-každý z nás drží svůj vlastní mikrofon.
-Digitální déšť stéká po horkém skle,
-tohle je kód, který nikdy nezemře.
-Zvedněte ruce, ať se spojí náš stín,
-vypusťte napětí z chladných turbín!
-
-[Pre-Chorus]
-[Tension building, drums driving a steady, powerful four-on-the-floor beat]
-Slyšíš ten tep? To je stroj, co má duši!
-Dneska ten krunýř ticha protrhnout musí!
-Společný nádech, síla miliónu těl,
-přichází to, co svět ještě neviděl!
-
-[Chorus]
-[Epic choral explosion, maximum energy]
-Projekt Jedna Dvě Tři – náš společný hlas! (Náš společný hlas!)
-Když kytary hřmí a čas ztrácí svůj vzkaz!
-Syntetická noc a rockový den,
-zpíváme spolu ten největší sen!
-Jedna, dvě, tři – světla už svítí,
-v tomhle rytmu se nedá nic skrýti!
-
-[Bridge]
-[The beat half-times, heavy guitar chords sustain as a massive choir takes the lead]
-Jedna! – Naše srdce bije jako hrom!
-Dvě! – Stojíme pevně jako starý strom!
-Tři! – Jsme volní, už nás neudrží hráz!
-(Teď přichází náš čas!)
-[A lightning-fast synth arpeggio leads into a soaring guitar solo]
-
-[Guitar and Synth Solo]
-[An epic duel between a screaming electric guitar and a bright, retro-futuristic synthesizer lead, perfectly synchronized with a driving rock beat]
-
-[Chorus]
-[Final, most explosive chorus, full choral support, crowd chanting along]
-Projekt Jedna Dvě Tři – náš společný hlas! (Náš společný hlas!)
-Když kytary hřmí a čas ztrácí svůj vzkaz!
-Syntetická noc a rockový den,
-zpíváme spolu ten největší sen!
-Jedna, dvě, tři – světla už svítí,
-v tomhle rytmu se nedá nic skrýti!
-
-[Outro]
-[Drums slowly fade out, leaving only warm synth chords]
-Jen pro vás...
-Každý tón, každý tep mého srdce""".trimIndent(),
-                stylePrompt = "driving synthwave bassline, stomping rock drum beat, heavy guitar chords, epic retro-synths, bright futurism, fast arpeggios",
-                excludedPrompt = "slow acoustic piano, silent ambient drone, chaotic jazz, bad performance",
-                vocalPrompt = "Epic rock choir with energetic vocoder lead and massive rock vocal duet",
-                vocalGain = 0.90f,
-                backgroundMusicMix = 0.75f,
-                vocalDelayMs = 240L,
-                voiceEffect = "Robot",
-                natureSound = "Thunder",
-                videoTemplate = "Cyberpunk Neon",
-                videoTransition = "Zoom"
-            )
-            val demoId = repository.saveProject(demoProject)
-            val savedDemo = demoProject.copy(id = demoId.toInt())
-            _activeProject.value = savedDemo
-            selectProject(savedDemo)
-        }
-    }
-
-    fun loadJednaDveTriProject() {
-        loadDemoProject()
-    }
-
-    fun generateCloudMusicWithTimeout(context: Context, styleStr: String, excludedStr: String) {
-        if (!registerAiGenerationUsage(context)) {
-            return
-        }
-        viewModelScope.launch(Dispatchers.IO) {
-            _isCloudMusicGenerating.value = true
-            _isGeneratingLyrics.value = true
-            _aiLyricsResult.value = "Kontaktuji cloudový hudební server s nastaveným limitem připojení 30s..."
-            try {
-                // Simulate network latency inside 30-sec safety timeout
-                delay(3500)
-                val lyricsPrompt = if (stylePromptField.value.isNotBlank()) stylePromptField.value else "vlastní styl"
-                val languageSelected = if (_vocalLyricalLanguage.value == "CS") "v češtině" else "v angličtině"
-                val vocalTypeVal = _vocalScaleType.value
-                val vocalEmotionVal = _vocalEmotion.value
-                val fullSpecPrompt = buildString {
-                    append("Hlavní styl: $lyricsPrompt. ")
-                    append("Míchání stylů (Multi-prompt Morphing) s plynulým matematickým prolnutím bez rytmických nesrovnalostí: ")
-                    append("${_styleMixingWeightA.value * 100}% ${_styleMixingA.value} + ${(1f - _styleMixingWeightA.value) * 100}% ${_styleMixingB.value}. ")
-                    append("Cílový interpret: $vocalTypeVal (Sólo/Skupina/Chorál), Hlasová intonace a nálada: $vocalEmotionVal. ")
-                    append("Jazyk: s perfektní intonací, přirozenými nádechy a stoprocentně správnou výslovností v preferovaném jazyce ($languageSelected, s bezchybnou českou diakritikou).")
-                }
-                val result = repository.getAiLyrics(
-                    projectTitle = projectTitleField.value,
-                    genre = projectGenreField.value,
-                    stylePrompt = fullSpecPrompt,
-                    excludedPrompt = excludedStr
-                )
-                _aiLyricsResult.value = result
-                
-                // Update current project if it exists
-                _activeProject.value?.let { current ->
-                    val updated = current.copy(
-                        lyrics = result,
-                        stylePrompt = stylePromptField.value,
-                        excludedPrompt = excludedPromptField.value,
-                        vocalDelayMs = _vocalDelayMs.value,
-                        backgroundMusicMix = _backgroundMusicMix.value
+            repository.allMarketplaceItems.first().let { current ->
+                if (current.isEmpty()) {
+                    val defaultPacks = listOf(
+                        MarketplaceItem("beat_synthwave", "Retro Synthwave Beat", "Autentický analogový základ z 80. let (110 BPM)", 4.99, false, "Beat", 30),
+                        MarketplaceItem("beat_lofi", "Cozy Lo-Fi Study Chords", "Jemné, tlumené jazzové harmonie na klavír v retro šumu", 3.49, false, "Beat", 35),
+                        MarketplaceItem("beat_metal", "Brutal Metal Double-Kick", "Bleskové bicí, extrémní zkreslení kytar a agresivní tempo (140 BPM)", 4.99, false, "Beat", 35),
+                        MarketplaceItem("beat_edm", "Apex EDM Festival Drop", "Mohutné detuned supersaw syntezátory a pumpující klubový rytmus (128 BPM)", 3.99, false, "Beat", 40),
+                        MarketplaceItem("beat_country", "Texas Cabin Country Acoustic", "Vybrnkávání kytary, klidný rytmus a walking doprovod kontrabasu (90 BPM)", 3.49, false, "Beat", 35),
+                        MarketplaceItem("effect_daft", "Robot Vocoder Preset", "Přemění hlas do ikonické robotické formy ve stylu Daft Punk", 2.99, false, "Vocal Effect", 0),
+                        MarketplaceItem("effect_autotune", "Hyper-Tune Pro Filter", "Ultramoderní automatické rovnání tónů pro rap a pop", 3.99, false, "Vocal Effect", 0),
+                        MarketplaceItem("ambience_cyberpunk", "Cyber Neon Rain", "Přírodní déšť protkaný ozvěnou dálnic a neonových svitů", 1.99, false, "Ambience", 45),
+                        MarketplaceItem("ambience_zen", "Sacred Zen Garden", "Zvuky proudící čisté vody, bambusových zvonkoher a hluboké ticho", 1.99, false, "Ambience", 60)
                     )
-                    _activeProject.value = updated
-                    repository.updateProject(updated)
+                    repository.prepopulateMarketplace(defaultPacks)
                 }
+            }
+        }
+    }
+
+    fun setAgeVerification(context: Context, verified: Boolean) {
+        viewModelScope.launch {
+            val isVerifiedKey = booleanPreferencesKey("is_age_verified")
+            context.preferencesDataStore.edit { prefs ->
+                prefs[isVerifiedKey] = verified
+            }
+            _isAgeVerified.value = verified
+        }
+    }
+
+    private val _lastAutosaveTime = MutableStateFlow<Long>(0L)
+    val lastAutosaveTime: StateFlow<Long> = _lastAutosaveTime.asStateFlow()
+
+    private var autosaveJob: kotlinx.coroutines.Job? = null
+
+    fun startAutosaveLoop(context: Context) {
+        autosaveJob?.cancel()
+        val appContext = context.applicationContext
+        autosaveJob = viewModelScope.launch(Dispatchers.IO) {
+            while (true) {
+                kotlinx.coroutines.delay(30000) // 30 seconds
+                val current = _activeProject.value
+                if (current != null) {
+                    try {
+                        val sharedPrefs = appContext.getSharedPreferences("browser_local_storage", Context.MODE_PRIVATE)
+                        val projectJson = """
+                            {
+                                "id": ${current.id},
+                                "title": "${escapeJson(current.title)}",
+                                "lyrics": "${escapeJson(current.lyrics)}",
+                                "genre": "${escapeJson(current.genre)}",
+                                "vocalEffect": "${escapeJson(current.vocalEffect)}",
+                                "backgroundAmbience": "${escapeJson(current.backgroundAmbience)}",
+                                "timestamp": ${current.timestamp},
+                                "trackDuration": ${current.trackDuration},
+                                "audioPath": ${current.audioPath?.let { "\"${escapeJson(it)}\"" } ?: "null"},
+                                "videoPath": ${current.videoPath?.let { "\"${escapeJson(it)}\"" } ?: "null"},
+                                "bpm": ${current.bpm}
+                            }
+                        """.trimIndent()
+
+                        sharedPrefs.edit()
+                            .putString("current_project_configuration", projectJson)
+                            .putLong("current_project_autosave_time", System.currentTimeMillis())
+                            .apply()
+
+                        _lastAutosaveTime.value = System.currentTimeMillis()
+                        Log.d("Autosave", "Project configuration synced to local storage: $projectJson")
+                    } catch (e: Exception) {
+                        Log.e("Autosave", "Failed to autosave project configuration", e)
+                    }
+                }
+            }
+        }
+    }
+
+    fun stopAutosaveLoop() {
+        autosaveJob?.cancel()
+        autosaveJob = null
+    }
+
+    private fun escapeJson(str: String): String {
+        return str.replace("\\", "\\\\")
+                  .replace("\"", "\\\"")
+                  .replace("\n", "\\n")
+                  .replace("\r", "\\r")
+    }
+
+    fun restoreProjectFromLocalStorage(context: Context): Boolean {
+        try {
+            val sharedPrefs = context.applicationContext.getSharedPreferences("browser_local_storage", Context.MODE_PRIVATE)
+            val jsonString = sharedPrefs.getString("current_project_configuration", null) ?: return false
+            
+            val title = extractJsonField(jsonString, "title")
+            val lyrics = extractJsonField(jsonString, "lyrics").replace("\\n", "\n")
+            val genre = extractJsonField(jsonString, "genre")
+            val vocalEffect = extractJsonField(jsonString, "vocalEffect")
+            val backgroundAmbience = extractJsonField(jsonString, "backgroundAmbience")
+            val idStr = extractJsonField(jsonString, "id")
+            val id = idStr.toIntOrNull() ?: return false
+            val durationStr = extractJsonField(jsonString, "trackDuration")
+            val duration = durationStr.toIntOrNull() ?: 15
+            val bpmStr = extractJsonField(jsonString, "bpm")
+            val bpm = bpmStr.toIntOrNull() ?: 120
+            
+            val current = _activeProject.value
+            if (current != null && current.id == id) {
+                viewModelScope.launch {
+                    val restored = current.copy(
+                        lyrics = lyrics,
+                        genre = genre,
+                        vocalEffect = vocalEffect,
+                        backgroundAmbience = backgroundAmbience,
+                        trackDuration = duration,
+                        bpm = bpm
+                    )
+                    repository.insertProject(restored)
+                    _activeProject.value = restored
+                    withContext(Dispatchers.Main) {
+                        Toast.makeText(context, "Konfigurace obnovena z místního úložiště!", Toast.LENGTH_SHORT).show()
+                    }
+                }
+                return true
+            }
+        } catch (e: Exception) {
+            Log.e("Autosave", "Failed to restore project from SharedPreferences", e)
+        }
+        return false
+    }
+
+    private fun extractJsonField(json: String, field: String): String {
+        val pattern = "\"$field\"\\s*:\\s*(?:\"([^\"]*)\"|([\\d.-]+|null|true|false))"
+        val regex = Regex(pattern)
+        val matchResult = regex.find(json)
+        return matchResult?.groups?.get(1)?.value 
+            ?: matchResult?.groups?.get(2)?.value 
+            ?: ""
+    }
+
+    fun selectProject(project: Project?, context: Context? = null) {
+        stopAudioPlayback()
+        _activeProject.value = project
+        if (project != null) {
+            initializeDefaultTracksIfNeeded(project.id, project.audioPath, project.backgroundAmbience)
+            if (context != null) {
+                startAutosaveLoop(context)
+            }
+        } else {
+            stopAutosaveLoop()
+        }
+    }
+
+    fun updateTrackVolume(track: AudioTrack, volume: Float) {
+        viewModelScope.launch {
+            val updated = track.copy(volume = volume)
+            repository.updateTrack(updated)
+            activeMediaPlayers[track.trackId]?.let { player ->
+                try {
+                    player.setVolume(volume, volume)
+                } catch (e: Exception) {
+                    // ignore
+                }
+            }
+        }
+    }
+
+    fun toggleTrackMute(track: AudioTrack) {
+        viewModelScope.launch {
+            val updated = track.copy(isMuted = !track.isMuted)
+            repository.updateTrack(updated)
+            activeMediaPlayers[track.trackId]?.let { player ->
+                try {
+                    val targetVol = if (updated.isMuted) 0f else updated.volume
+                    player.setVolume(targetVol, targetVol)
+                } catch (e: Exception) {
+                    // ignore
+                }
+            }
+        }
+    }
+
+    fun toggleTrackSolo(track: AudioTrack) {
+        viewModelScope.launch {
+            val updated = track.copy(isSolo = !track.isSolo)
+            repository.updateTrack(updated)
+        }
+    }
+
+    fun updateTrackEffects(
+        track: AudioTrack,
+        eqLow: Float,
+        eqMid: Float,
+        eqHigh: Float,
+        compEnabled: Boolean,
+        compThreshold: Float,
+        compRatio: Float,
+        reverbEnabled: Boolean,
+        reverbWet: Float,
+        reverbFeedback: Float
+    ) {
+        viewModelScope.launch {
+            val updated = track.copy(
+                eqLow = eqLow,
+                eqMid = eqMid,
+                eqHigh = eqHigh,
+                compEnabled = compEnabled,
+                compThreshold = compThreshold,
+                compRatio = compRatio,
+                reverbEnabled = reverbEnabled,
+                reverbWet = reverbWet,
+                reverbFeedback = reverbFeedback
+            )
+            repository.updateTrack(updated)
+        }
+    }
+
+    fun addCustomTrack(projectId: Int, name: String, type: String) {
+        viewModelScope.launch {
+            val newTrack = AudioTrack(
+                projectId = projectId,
+                name = name,
+                filePath = null,
+                volume = 0.8f,
+                trackType = type
+            )
+            repository.insertTrack(newTrack)
+        }
+    }
+
+    fun removeTrack(track: AudioTrack) {
+        viewModelScope.launch {
+            stopAudioPlayback()
+            repository.deleteTrack(track)
+            track.filePath?.let { path ->
+                val f = File(path)
+                if (f.exists()) f.delete()
+            }
+        }
+    }
+
+    fun playMultiTrack(context: Context, tracks: List<AudioTrack>) {
+        stopAudioPlayback()
+
+        val currentProj = _activeProject.value ?: return
+        viewModelScope.launch {
+            val processedTracks = tracks.map { track ->
+                if (track.trackType == "MIDI" && (track.filePath.isNullOrEmpty() || !File(track.filePath).exists())) {
+                    val cacheDir = context.cacheDir
+                    val file = File(cacheDir, "midi_${track.trackId}_synth.wav")
+                    withContext(Dispatchers.IO) {
+                        try {
+                            com.example.util.MidiSynthesizer.synthesizeMidiToWav(
+                                instrument = track.midiInstrument ?: "Sine Lead",
+                                patternStr = track.midiPattern ?: "",
+                                outputFile = file,
+                                trackDuration = currentProj.trackDuration
+                            )
+                        } catch (e: Exception) {
+                            Log.e(TAG, "Failed MIDI synthesis in play: ${e.message}")
+                        }
+                    }
+                    val updated = track.copy(filePath = file.absolutePath)
+                    withContext(Dispatchers.IO) {
+                        repository.updateTrack(updated)
+                    }
+                    updated
+                } else {
+                    track
+                }
+            }
+
+            val hasSolo = processedTracks.any { it.isSolo }
+            val tracksToPlay = processedTracks.filter { track ->
+                val hasFile = !track.filePath.isNullOrEmpty() && File(track.filePath).exists()
+                val allowedBySoloMute = if (hasSolo) track.isSolo else !track.isMuted
+                hasFile && allowedBySoloMute
+            }
+
+            if (tracksToPlay.isEmpty()) {
+                Toast.makeText(context, "Žádné nahrané ani vygenerované stopy k přehrání!", Toast.LENGTH_SHORT).show()
+                return@launch
+            }
+
+            tracksToPlay.forEach { track ->
+                try {
+                    val hasEq = track.eqLow != 0.0f || track.eqMid != 0.0f || track.eqHigh != 0.0f
+                    val hasFx = hasEq || track.compEnabled || track.reverbEnabled
+                    
+                    val playPath = if (hasFx && !track.filePath.isNullOrEmpty()) {
+                        val originalFile = File(track.filePath)
+                        if (originalFile.exists()) {
+                            val tempDest = File(context.cacheDir, "track_${track.trackId}_temp_fx.wav")
+                            withContext(Dispatchers.IO) {
+                                try {
+                                    com.example.util.AudioEffectsProcessor.processTrackFileWithEffects(
+                                        track = track,
+                                        originalFile = originalFile,
+                                        outputFile = tempDest
+                                    )
+                                } catch (e: Exception) {
+                                    Log.e(TAG, "Failed to compile live FX preview file: ${e.message}")
+                                }
+                            }
+                            if (tempDest.exists() && tempDest.length() > 0) {
+                                tempDest.absolutePath
+                            } else {
+                                track.filePath
+                            }
+                        } else {
+                            track.filePath
+                        }
+                    } else {
+                        track.filePath
+                    }
+
+                    val player = MediaPlayer().apply {
+                        setDataSource(playPath)
+                        val vol = if (track.isMuted) 0f else track.volume
+                        setVolume(vol, vol)
+                        prepare()
+                        setOnCompletionListener {
+                            if (activeMediaPlayers.values.all { !it.isPlaying }) {
+                                _isPlaying.value = false
+                            }
+                        }
+                    }
+                    activeMediaPlayers[track.trackId] = player
+                } catch (e: Exception) {
+                    Log.e(TAG, "Nelze připravit stopu ${track.name}: ${e.message}")
+                }
+            }
+
+            if (activeMediaPlayers.isNotEmpty()) {
+                _isPlaying.value = true
+                activeMediaPlayers.values.forEach {
+                    try {
+                        it.start()
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Chyba spuštění stopy: ${e.message}")
+                    }
+                }
+            } else {
+                Toast.makeText(context, "Chyba při inicializaci přehrávačů stop.", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
+    fun startRecording(context: Context, track: AudioTrack) {
+        if (currentlyRecordingTrackId.value != null) return
+        stopAudioPlayback()
+
+        val outputFile = File(context.cacheDir, "rec_${track.trackId}_${System.currentTimeMillis()}.wav")
+        try {
+            mediaRecorder = android.media.MediaRecorder().apply {
+                setAudioSource(android.media.MediaRecorder.AudioSource.MIC)
+                setOutputFormat(android.media.MediaRecorder.OutputFormat.THREE_GPP)
+                setAudioEncoder(android.media.MediaRecorder.AudioEncoder.AMR_NB)
+                setOutputFile(outputFile.absolutePath)
+                prepare()
+                start()
+            }
+            currentlyRecordingTrackId.value = track.trackId
+            _isRecordingState.value = true
+            tempRecordingFile = outputFile
+            Toast.makeText(context, "Nahrávám: ${track.name}...", Toast.LENGTH_SHORT).show()
+        } catch (e: Exception) {
+            Log.e(TAG, "Recorder error: ${e.message}")
+            Toast.makeText(context, "Chyba spuštění nahrávání: ${e.message}", Toast.LENGTH_LONG).show()
+        }
+    }
+
+    fun stopRecording(context: Context) {
+        val trackId = currentlyRecordingTrackId.value ?: return
+        _isRecordingState.value = false
+        currentlyRecordingTrackId.value = null
+
+        try {
+            mediaRecorder?.let {
+                it.stop()
+                it.release()
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Recorder stop error: ${e.message}")
+        }
+        mediaRecorder = null
+
+        tempRecordingFile?.let { file ->
+            if (file.exists() && file.length() > 0) {
+                viewModelScope.launch {
+                    val tracks = activeProjectTracks.value
+                    tracks.find { it.trackId == trackId }?.let { originalTrack ->
+                        val updatedTrack = originalTrack.copy(filePath = file.absolutePath)
+                        repository.updateTrack(updatedTrack)
+                    }
+                }
+                Toast.makeText(context, "Hlasový záznam uložen a zvrstven!", Toast.LENGTH_SHORT).show()
+            }
+        }
+        tempRecordingFile = null
+    }
+
+    fun initializeDefaultTracksIfNeeded(projectId: Int, backingAudioPath: String?, ambienceType: String) {
+        viewModelScope.launch {
+            val existing = repository.getTracksForProject(projectId).first()
+            if (existing.isEmpty()) {
+                repository.insertTrack(
+                    AudioTrack(
+                        projectId = projectId,
+                        name = "Doprovodný beat (Instrumental)",
+                        filePath = backingAudioPath,
+                        volume = 0.7f,
+                        trackType = "Beat"
+                    )
+                )
+                repository.insertTrack(
+                    AudioTrack(
+                        projectId = projectId,
+                        name = "Hlavní zpěv (Lead Vocal Mic)",
+                        filePath = null,
+                        volume = 0.9f,
+                        trackType = "Vocal"
+                    )
+                )
+                repository.insertTrack(
+                    AudioTrack(
+                        projectId = projectId,
+                        name = "Doprovodný zpěv (Harmony Vocals)",
+                        filePath = null,
+                        volume = 0.8f,
+                        trackType = "Vocal"
+                    )
+                )
+                repository.insertTrack(
+                    AudioTrack(
+                        projectId = projectId,
+                        name = "Syntetizátorová sekvence (MIDI)",
+                        filePath = null,
+                        volume = 0.6f,
+                        trackType = "MIDI",
+                        midiInstrument = "Sine Lead",
+                        midiPattern = "0_0,2_1,4_2,6_3,8_4,10_3,12_2,14_1"
+                    )
+                )
+                if (ambienceType != "None" && ambienceType.isNotBlank()) {
+                    repository.insertTrack(
+                        AudioTrack(
+                            projectId = projectId,
+                            name = "Ambientní pozadí ($ambienceType Atmosphere)",
+                            filePath = null,
+                            volume = 0.4f,
+                            trackType = "Ambience"
+                        )
+                    )
+                }
+            } else {
+                if (!backingAudioPath.isNullOrEmpty() && File(backingAudioPath).exists()) {
+                    existing.find { it.trackType == "Beat" && it.filePath.isNullOrEmpty() }?.let { beatTrack ->
+                        repository.updateTrack(beatTrack.copy(filePath = backingAudioPath))
+                    }
+                }
+            }
+        }
+    }
+
+    fun createNewProject(title: String, lyrics: String, genre: String, vocalEffect: String, backgroundAmbience: String) {
+        viewModelScope.launch {
+            val newProj = Project(
+                title = title,
+                lyrics = lyrics,
+                genre = genre,
+                vocalEffect = vocalEffect,
+                backgroundAmbience = backgroundAmbience,
+                trackDuration = 15
+            )
+            val indexId = repository.insertProject(newProj)
+            val savedProj = repository.getProjectById(indexId.toInt())
+            _activeProject.value = savedProj
+        }
+    }
+
+    fun updateActiveProject(lyrics: String, genre: String, vocalEffect: String, backgroundAmbience: String) {
+        val current = _activeProject.value ?: return
+        viewModelScope.launch {
+            val updated = current.copy(
+                lyrics = lyrics,
+                genre = genre,
+                vocalEffect = vocalEffect,
+                backgroundAmbience = backgroundAmbience
+            )
+            repository.insertProject(updated)
+            _activeProject.value = updated
+        }
+    }
+
+    fun deleteProject(project: Project) {
+        viewModelScope.launch {
+            if (_activeProject.value?.id == project.id) {
+                stopAudioPlayback()
+                _activeProject.value = null
+            }
+            repository.deleteProject(project)
+        }
+    }
+
+    fun generateAILyrics(topic: String, genre: String) {
+        val current = _activeProject.value ?: return
+        if (topic.isBlank()) return
+        
+        viewModelScope.launch {
+            _isGeneratingLyrics.value = true
+            try {
+                val generated = GeminiClient.generateSongLyrics(topic, genre)
+                val updated = current.copy(lyrics = generated)
+                repository.insertProject(updated)
+                _activeProject.value = updated
             } catch (e: Exception) {
-                _aiLyricsResult.value = "Chyba generování: ${e.message}"
+                Log.e(TAG, "Error generating lyrics: ${e.message}")
             } finally {
-                _isCloudMusicGenerating.value = false
                 _isGeneratingLyrics.value = false
             }
         }
     }
 
-    fun setVocalVolume(vol: Float) {
-        _vocalVolume.value = vol
-        _activeProject.value?.let {
-            saveProjectFieldsSilently(it.copy(vocalGain = vol))
-        }
-        updatePlayerVolume()
-    }
+    fun generateCompleteSong(context: Context, topic: String, selectedGenre: String) {
+        val current = _activeProject.value ?: return
+        stopAudioPlayback()
 
-    fun setSynthVolume(vol: Float) {
-        _synthVolume.value = vol
-        updatePlayerVolume()
-    }
+        viewModelScope.launch {
+            _isGeneratingCompleteSong.value = true
+            _completeSongProgress.value = 0f
+            try {
+                _completeSongProgress.value = 0.12f
+                
+                // 1. Generate lyrics concept via Gemini
+                val topicPrompt = if (topic.isNotBlank()) topic else "letní láska a naděje"
+                val responseLyrics = GeminiClient.generateSongLyrics(topicPrompt, selectedGenre)
+                _completeSongProgress.value = 0.35f
+                
+                // 2. Synthesize finished WAV track with vocaloids and beat instruments!
+                val targetFile = com.example.util.ExportFileHelper.generateFinishedSongWav(
+                    context = context,
+                    genre = selectedGenre,
+                    lyrics = responseLyrics,
+                    durationSec = current.trackDuration,
+                    projectBpm = current.bpm,
+                    onProgress = { progress ->
+                        _completeSongProgress.value = 0.35f + (0.55f * progress)
+                    }
+                )
 
-    fun setDrumsVolume(vol: Float) {
-        _drumsVolume.value = vol
-        updatePlayerVolume()
-    }
+                _completeSongProgress.value = 0.95f
 
-    fun setNatureVolume(vol: Float) {
-        _natureVolume.value = vol
-        updatePlayerVolume()
-    }
+                // 3. Update the data structures of Project & AudioTrack
+                val tracks = repository.getTracksForProject(current.id).first()
+                val mainBeatTrack = tracks.find { it.trackType == "Beat" }
+                if (mainBeatTrack != null) {
+                    val updatedBeat = mainBeatTrack.copy(
+                        name = "Hlavní AI Song ($selectedGenre - Suno/Udio)",
+                        filePath = targetFile.absolutePath,
+                        volume = 0.85f
+                    )
+                    repository.updateTrack(updatedBeat)
+                } else {
+                    val insertBeat = com.example.data.database.AudioTrack(
+                        projectId = current.id,
+                        name = "Hlavní AI Song ($selectedGenre - Suno/Udio)",
+                        filePath = targetFile.absolutePath,
+                        volume = 0.85f,
+                        trackType = "Beat"
+                    )
+                    repository.insertTrack(insertBeat)
+                }
 
-    fun selectProject(project: Project) {
-        _activeProject.value = project
-        projectTitleField.value = project.title
-        projectGenreField.value = project.genre
-        stylePromptField.value = project.stylePrompt
-        excludedPromptField.value = project.excludedPrompt
-        lyricPromptField.value = project.vocalPrompt
-        projectBpmField.value = project.bpm
-        _vocalVolume.value = project.vocalGain
-        _aiLyricsResult.value = project.lyrics
-        _vocalDelayMs.value = project.vocalDelayMs
-        _backgroundMusicMix.value = project.backgroundMusicMix
-    }
+                val updatedProject = current.copy(
+                    lyrics = responseLyrics,
+                    genre = selectedGenre,
+                    audioPath = targetFile.absolutePath
+                )
+                repository.insertProject(updatedProject)
+                _activeProject.value = updatedProject
 
-    fun createNewProject() {
-        viewModelScope.launch(Dispatchers.IO) {
-            val num = (projectsList.value.size + 1)
-            val p = Project(
-                title = "Projekt $num",
-                genre = "Pop",
-                bpm = 120,
-                lyrics = "[Verse]\nKrásný den začíná s melodií...\n\n[Chorus]\nZpívám si svou vlastní píseň, odháním z hlavy tíseň!\n\n[Outro]\n[Drums slowly fade out, leaving only warm synth chords]\nJen pro vás...\nKaždý tón, každý tep mého srdce"
-            )
-            val id = repository.saveProject(p)
-            val savedProject = p.copy(id = id.toInt())
-            _activeProject.value = savedProject
-            selectProject(savedProject)
-        }
-    }
-
-    fun deleteProject(id: Int) {
-        viewModelScope.launch(Dispatchers.IO) {
-            repository.deleteProjectById(id)
-            if (_activeProject.value?.id == id) {
-                _activeProject.value = null
+                _completeSongProgress.value = 1.0f
+                
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(context, "AI Skladba byla úspěšně vygenerována a načtena do mixážního pultu! ⚡🎛️", Toast.LENGTH_LONG).show()
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed generating AI Song: ${e.message}")
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(context, "Chyba generování skladby: ${e.message}", Toast.LENGTH_LONG).show()
+                }
+            } finally {
+                _isGeneratingCompleteSong.value = false
+                _completeSongProgress.value = 0f
             }
         }
     }
 
-    private fun saveProjectFieldsSilently(p: Project) {
-        viewModelScope.launch(Dispatchers.IO) {
-            repository.updateProject(p)
+    fun buyMarketplaceAsset(context: Context, item: MarketplaceItem) {
+        val cost = item.price.toInt()
+        if (_userCredits.value < cost) {
+            Toast.makeText(context, "Nemáte dostatek kreditů! (Potřebujete: $cost 🪙, Máte: ${_userCredits.value} 🪙)", Toast.LENGTH_LONG).show()
+            return
+        }
+        viewModelScope.launch {
+            repository.purchaseItem(item)
+            val newCredits = _userCredits.value - cost
+            updateUserCredits(context, newCredits)
+            Toast.makeText(context, "${item.name} byl úspěšně zakoupen za $cost kreditů! Zůstatek: $newCredits 🪙", Toast.LENGTH_LONG).show()
         }
     }
 
-    fun saveCurrentProjectState() {
-        val current = _activeProject.value ?: return
-        viewModelScope.launch(Dispatchers.IO) {
-            val updated = current.copy(
-                title = projectTitleField.value,
-                genre = projectGenreField.value,
-                vocalPrompt = lyricPromptField.value,
-                stylePrompt = stylePromptField.value,
-                excludedPrompt = excludedPromptField.value,
-                bpm = projectBpmField.value,
-                lyrics = _aiLyricsResult.value,
-                vocalGain = _vocalVolume.value,
-                videoTemplate = current.videoTemplate,
-                videoTransition = current.videoTransition,
-                colorGradingPreset = current.colorGradingPreset,
-                fontName = current.fontName,
-                projectLicense = current.projectLicense,
-                isSharedPublicly = current.isSharedPublicly,
-                rightsPriceCzk = current.rightsPriceCzk
-            )
-            repository.updateProject(updated)
-            _activeProject.value = updated
-        }
-    }
-
-    fun updateProjectVideoSettings(template: String, transition: String, colorGrading: String, font: String) {
-        val current = _activeProject.value ?: return
-        val updated = current.copy(
-            videoTemplate = template,
-            videoTransition = transition,
-            colorGradingPreset = colorGrading,
-            fontName = font
-        )
-        _activeProject.value = updated
-        saveProjectFieldsSilently(updated)
-    }
-
-    fun updateProjectLicenseSettings(license: String, isPublic: Boolean, price: Double) {
-        val current = _activeProject.value ?: return
-        val updated = current.copy(
-            projectLicense = license,
-            isSharedPublicly = isPublic,
-            rightsPriceCzk = price
-        )
-        _activeProject.value = updated
-        saveProjectFieldsSilently(updated)
-    }
-
-    // Playback Simulators
-    private var mediaPlayer: android.media.MediaPlayer? = null
-
-    fun togglePlay(context: Context) {
-        _isPlaying.value = !_isPlaying.value
-        if (_isPlaying.value) {
-            _isRecording.value = false
-            startPlayingAudio(context)
-        } else {
-            stopPlayingAudio()
-        }
-    }
-
-    fun togglePlay() {
-        _isPlaying.value = !_isPlaying.value
-        if (_isPlaying.value) {
-            _isRecording.value = false
-        } else {
-            stopPlayingAudio()
-        }
-    }
-
-    private fun startPlayingAudio(context: Context) {
-        viewModelScope.launch(Dispatchers.IO) {
+    fun sendChatMessage(msg: String) {
+        if (msg.isBlank()) return
+        val updated = _chatMessages.value.toMutableList()
+        updated.add(msg to true)
+        _chatMessages.value = updated
+        
+        viewModelScope.launch {
+            _isChatLoading.value = true
             try {
-                val project = _activeProject.value
-                val cacheFile = com.example.util.ExportFileHelper.generateProjectAudioCache(context, project)
-                
-                kotlinx.coroutines.withContext(Dispatchers.Main) {
-                    try {
-                        mediaPlayer?.release()
-                        mediaPlayer = android.media.MediaPlayer().apply {
-                            setDataSource(cacheFile.absolutePath)
-                            setOnPreparedListener { mp ->
-                                mp.isLooping = true
-                                updatePlayerVolume()
-                                mp.start()
-                            }
-                            setOnErrorListener { _, _, _ ->
-                                _isPlaying.value = false
-                                false
-                            }
-                            prepare()
+                val response = GeminiClient.generateText(
+                    msg,
+                    "Jsi profesionální, kreativní hudební asistent pro Spark Studio v češtině. Pomáháš krotit tlusté synťáky, psát dechberoucí rýmy, míchat pop, rock, hiphop a radit s exportem videí."
+                )
+                val chatLog = _chatMessages.value.toMutableList()
+                chatLog.add(response to false)
+                _chatMessages.value = chatLog
+            } catch (e: Exception) {
+                val chatLog = _chatMessages.value.toMutableList()
+                chatLog.add("Omlouvám se, nepodařilo se mi spojit s kreativním vědomím Gemini. Zkontroluj prosím připojení." to false)
+                _chatMessages.value = chatLog
+            } finally {
+                _isChatLoading.value = false
+            }
+        }
+    }
+
+    fun generateAIMusicInCloud(context: Context) {
+        val current = _activeProject.value ?: return
+        stopAudioPlayback()
+
+        viewModelScope.launch {
+            _isSynthesizingAudio.value = true
+            _audioProgress.value = 0f
+            try {
+                // Call Gemini to get music blueprint in the cloud
+                val blueprint = GeminiClient.generateMusicBlueprint(current.lyrics, current.genre)
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(context, "AI Skladatel: $blueprint", Toast.LENGTH_LONG).show()
+                }
+
+                val targetFile = ExportFileHelper.generateRealAudioTrack(
+                    context = context,
+                    genre = current.genre,
+                    durationSec = current.trackDuration,
+                    projectBpm = current.bpm
+                ) { progress ->
+                    _audioProgress.value = progress
+                }
+
+                val savedProj = current.copy(audioPath = targetFile.absolutePath)
+                repository.insertProject(savedProj)
+                _activeProject.value = savedProj
+
+                withContext(Dispatchers.Main) {
+                    mediaPlayer = MediaPlayer().apply {
+                        setDataSource(targetFile.absolutePath)
+                        prepare()
+                        start()
+                        setOnCompletionListener {
+                            _isPlaying.value = false
                         }
-                    } catch (e: Exception) {
-                        e.printStackTrace()
-                        _isPlaying.value = false
+                    }
+                    _isPlaying.value = true
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Cloud AI synthesis breakdown: ${e.message}")
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(context, "Chyba cloudového AI: ${e.message}", Toast.LENGTH_LONG).show()
+                }
+            } finally {
+                _isSynthesizingAudio.value = false
+            }
+        }
+    }
+
+    fun playSynthesizedAudio(context: Context) {
+        val current = _activeProject.value ?: return
+        stopAudioPlayback()
+
+        viewModelScope.launch {
+            _isSynthesizingAudio.value = true
+            _audioProgress.value = 0f
+            try {
+                val targetFile = ExportFileHelper.generateRealAudioTrack(
+                    context = context,
+                    genre = current.genre,
+                    durationSec = current.trackDuration
+                ) { progress ->
+                    _audioProgress.value = progress
+                }
+
+                val savedProj = current.copy(audioPath = targetFile.absolutePath)
+                repository.insertProject(savedProj)
+                _activeProject.value = savedProj
+
+                withContext(Dispatchers.Main) {
+                    mediaPlayer = MediaPlayer().apply {
+                        setDataSource(targetFile.absolutePath)
+                        prepare()
+                        start()
+                        setOnCompletionListener {
+                            _isPlaying.value = false
+                        }
+                    }
+                    _isPlaying.value = true
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Synthesis breakdown: ${e.message}")
+                Toast.makeText(context, "Chyba generování audio stop: ${e.message}", Toast.LENGTH_SHORT).show()
+            } finally {
+                _isSynthesizingAudio.value = false
+            }
+        }
+    }
+
+    fun stopAudioPlayback() {
+        // Stop and release all active multitrack players
+        activeMediaPlayers.values.forEach {
+            try {
+                if (it.isPlaying) {
+                    it.stop()
+                }
+                it.release()
+            } catch (e: Exception) {
+                // Ignore
+            }
+        }
+        activeMediaPlayers.clear()
+
+        mediaPlayer?.let {
+            if (it.isPlaying) {
+                it.stop()
+            }
+            it.release()
+        }
+        mediaPlayer = null
+        _isPlaying.value = false
+    }
+
+    fun generateMP4LyricVideo(context: Context) {
+        val current = _activeProject.value ?: return
+        viewModelScope.launch {
+            _isVideoGenerating.value = true
+            _videoProgress.value = 0f
+            _videoGenerationError.value = null
+            try {
+                // Ensure audio is ready
+                val audioFile = if (!current.audioPath.isNullOrEmpty() && File(current.audioPath).exists()) {
+                    File(current.audioPath)
+                } else {
+                    ExportFileHelper.generateRealAudioTrack(context, current.genre, current.trackDuration) {}
+                }
+
+                val visualMood = GeminiClient.analyzeMoodAndRecommendVisuals(current.lyrics)
+
+                val videoFile = ExportFileHelper.generateRealLyricVideo(
+                    context = context,
+                    lyrics = current.lyrics,
+                    genre = current.genre,
+                    audioFile = audioFile,
+                    durationSec = current.trackDuration,
+                    visualMood = visualMood
+                ) { progress ->
+                    _videoProgress.value = progress
+                }
+
+                val updated = current.copy(
+                    audioPath = audioFile.absolutePath,
+                    videoPath = videoFile.absolutePath
+                )
+                repository.insertProject(updated)
+                _activeProject.value = updated
+                _videoGenerationError.value = null
+
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(context, "Lyric Video úspěšně vygenerováno: ${videoFile.name}", Toast.LENGTH_LONG).show()
+                }
+
+            } catch (e: Exception) {
+                Log.e(TAG, "Video synthesis failed: ${e.message}")
+                _videoGenerationError.value = e.message ?: "Chyba při syntéze videa"
+                Toast.makeText(context, "Chyba při generování videa: ${e.message}", Toast.LENGTH_LONG).show()
+            } finally {
+                _isVideoGenerating.value = false
+            }
+        }
+    }
+
+    fun generateAlternativeMP4LyricVideo(context: Context) {
+        val current = _activeProject.value ?: return
+        viewModelScope.launch {
+            _isVideoGenerating.value = true
+            _videoProgress.value = 0f
+            _videoGenerationError.value = null
+            try {
+                val audioFile = if (!current.audioPath.isNullOrEmpty() && File(current.audioPath).exists()) {
+                    File(current.audioPath)
+                } else {
+                    ExportFileHelper.generateRealAudioTrack(context, current.genre, current.trackDuration) {}
+                }
+
+                val safeVisualMood = "Klidný alternativní vizuál s přírodní tématikou, hory v zapadajícím slunci, vřelá atmosféra"
+                val videoFile = ExportFileHelper.generateRealLyricVideo(
+                    context = context,
+                    lyrics = current.lyrics,
+                    genre = current.genre,
+                    audioFile = audioFile,
+                    durationSec = current.trackDuration,
+                    visualMood = safeVisualMood
+                ) { progress ->
+                    _videoProgress.value = progress
+                }
+
+                val updated = current.copy(
+                    audioPath = audioFile.absolutePath,
+                    videoPath = videoFile.absolutePath
+                )
+                repository.insertProject(updated)
+                _activeProject.value = updated
+                _videoGenerationError.value = null
+
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(context, "Alternativní video úspěšně vygenerováno!", Toast.LENGTH_LONG).show()
+                }
+
+            } catch (e: Exception) {
+                Log.e(TAG, "Alternative video synthesis failed: ${e.message}")
+                _videoGenerationError.value = "Chyba alternativního generování: ${e.message}"
+            } finally {
+                _isVideoGenerating.value = false
+            }
+        }
+    }
+
+    fun triggerBackgroundServiceExport(context: Context, format: String) {
+        val current = _activeProject.value ?: return
+        val serviceIntent = Intent(context, ExportForegroundService::class.java).apply {
+            putExtra(ExportForegroundService.EXTRA_FORMAT, format)
+            putExtra(ExportForegroundService.EXTRA_DURATION_SEC, current.trackDuration)
+            putExtra(ExportForegroundService.EXTRA_LYRICS, current.lyrics)
+            putExtra(ExportForegroundService.EXTRA_GENRE, current.genre)
+        }
+        try {
+            context.startService(serviceIntent)
+            Toast.makeText(context, "Export na pozadí spuštěn. Sleduj stav v panelu upozornění.", Toast.LENGTH_LONG).show()
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to delegate export service: ${e.message}")
+        }
+    }
+
+    fun updateMidiTrackPattern(context: Context, track: AudioTrack, instrument: String, pattern: String) {
+        val currentProj = _activeProject.value ?: return
+        viewModelScope.launch(Dispatchers.IO) {
+            val cacheDir = context.cacheDir
+            val filename = "midi_${track.trackId}_${System.currentTimeMillis()}.wav"
+            val midiFile = File(cacheDir, filename)
+
+            try {
+                com.example.util.MidiSynthesizer.synthesizeMidiToWav(
+                    instrument = instrument,
+                    patternStr = pattern,
+                    outputFile = midiFile,
+                    trackDuration = currentProj.trackDuration
+                )
+
+                track.filePath?.let { oldPath ->
+                    val oldFile = File(oldPath)
+                    if (oldFile.exists()) {
+                        oldFile.delete()
+                    }
+                }
+
+                val updated = track.copy(
+                    midiInstrument = instrument,
+                    midiPattern = pattern,
+                    filePath = midiFile.absolutePath
+                )
+                repository.updateTrack(updated)
+            } catch (e: Exception) {
+                Log.e(TAG, "Error updating MIDI track pattern: ${e.message}")
+            }
+        }
+    }
+
+    fun exportProjectAudio(context: Context, tracks: List<AudioTrack>) {
+        val current = _activeProject.value ?: return
+        if (tracks.isEmpty()) {
+            Toast.makeText(context, "Žádné stopy k exportu!", Toast.LENGTH_SHORT).show()
+            return
+        }
+        viewModelScope.launch {
+            _isExportingProject.value = true
+            _exportProjectProgress.value = 0f
+            try {
+                val processedTracks = withContext(Dispatchers.IO) {
+                    tracks.map { track ->
+                        if (track.trackType == "MIDI" && (track.filePath.isNullOrEmpty() || !File(track.filePath).exists())) {
+                            val cacheDir = context.cacheDir
+                            val file = File(cacheDir, "midi_${track.trackId}_synth.wav")
+                            try {
+                                com.example.util.MidiSynthesizer.synthesizeMidiToWav(
+                                    instrument = track.midiInstrument ?: "Sine Lead",
+                                    patternStr = track.midiPattern ?: "",
+                                    outputFile = file,
+                                    trackDuration = current.trackDuration
+                                )
+                            } catch (e: Exception) {
+                                Log.e(TAG, "Failed MIDI synthesis in export: ${e.message}")
+                            }
+                            val updated = track.copy(filePath = file.absolutePath)
+                            repository.updateTrack(updated)
+                            updated
+                        } else {
+                            track
+                        }
+                    }
+                }
+
+                val cacheDir = context.cacheDir
+                val exportFile = File(cacheDir, "spark_export_${current.title.replace("\\s+".toRegex(), "_")}_${System.currentTimeMillis()}.wav")
+
+                ExportFileHelper.mixActiveTracksToWav(context, processedTracks, exportFile) { progress ->
+                    _exportProjectProgress.value = progress
+                }
+
+                // Save to downloads so it is easily downloadable
+                ExportFileHelper.saveWavToDownloads(context, exportFile, "Spark_Studio_" + current.title.replace("\\s+".toRegex(), "_"))
+
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(context, "Projekt úspěšně zkompilován a uložen do složky Stažené soubory! 🎉", Toast.LENGTH_LONG).show()
+
+                    // Also trigger the standard share intent so they can share it or store it anywhere
+                    try {
+                        val authority = "${context.packageName}.fileprovider"
+                        val contentUri = androidx.core.content.FileProvider.getUriForFile(context, authority, exportFile)
+                        val shareIntent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+                            type = "audio/wav"
+                            putExtra(android.content.Intent.EXTRA_STREAM, contentUri)
+                            addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                        }
+                        context.startActivity(android.content.Intent.createChooser(shareIntent, "Sdílet nebo uložit zkompilovaný projekt"))
+                    } catch (ex: Exception) {
+                        Log.e("exportProjectAudio", "Nepodařilo se spustit sdílení: ${ex.message}")
                     }
                 }
             } catch (e: Exception) {
-                e.printStackTrace()
-                kotlinx.coroutines.withContext(Dispatchers.Main) {
-                    _isPlaying.value = false
+                Log.e(TAG, "Chyba při exportu projektu: ${e.message}")
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(context, "Chyba exportu: ${e.message}", Toast.LENGTH_LONG).show()
                 }
+            } finally {
+                _isExportingProject.value = false
             }
         }
     }
 
-    fun stopPlayingAudio() {
+    private var communityMediaPlayer: MediaPlayer? = null
+    private val _playingCommunityItemId = MutableStateFlow<String?>(null)
+    val playingCommunityItemId: StateFlow<String?> = _playingCommunityItemId
+
+    fun playCommunityItem(context: Context, item: MarketplaceItem) {
+        val audioPath = item.audioPath ?: return
+        if (_playingCommunityItemId.value == item.id) {
+            stopCommunityItem()
+            return
+        }
+        stopCommunityItem()
         try {
-            mediaPlayer?.let {
+            val player = MediaPlayer().apply {
+                setDataSource(audioPath)
+                prepare()
+                start()
+                setOnCompletionListener {
+                    _playingCommunityItemId.value = null
+                    it.release()
+                    if (communityMediaPlayer == this) {
+                        communityMediaPlayer = null
+                    }
+                }
+            }
+            communityMediaPlayer = player
+            _playingCommunityItemId.value = item.id
+        } catch (e: Exception) {
+            Log.e(TAG, "Error playing community item: ${e.message}")
+            Toast.makeText(context, "Nelze přehrát: ${e.message}", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    fun stopCommunityItem() {
+        try {
+            communityMediaPlayer?.let {
                 if (it.isPlaying) {
                     it.stop()
                 }
                 it.release()
             }
-            mediaPlayer = null
         } catch (e: Exception) {
-            e.printStackTrace()
+            Log.e(TAG, "Error stopping community element", e)
+        }
+        communityMediaPlayer = null
+        _playingCommunityItemId.value = null
+    }
+
+    fun publishProjectToCommunity(
+        context: Context,
+        tracks: List<com.example.data.database.AudioTrack>,
+        customTitle: String,
+        customDescription: String,
+        genreTag: String,
+        metadataTags: String,
+        price: Int, // Price in credits
+        onFinished: (Boolean) -> Unit
+    ) {
+        val current = _activeProject.value ?: return
+        if (tracks.isEmpty()) {
+            Toast.makeText(context, "Žádné stopy k zveřejnění!", Toast.LENGTH_SHORT).show()
+            return
+        }
+        viewModelScope.launch {
+            _isExportingProject.value = true
+            _exportProjectProgress.value = 0f
+            try {
+                // 1. Synthesize MIDI Tracks if they haven't been synthesized
+                val processedTracks = withContext(Dispatchers.IO) {
+                    tracks.map { track ->
+                        if (track.trackType == "MIDI" && (track.filePath.isNullOrEmpty() || !File(track.filePath).exists())) {
+                            val cacheDir = context.cacheDir
+                            val file = File(cacheDir, "midi_${track.trackId}_synth.wav")
+                            try {
+                                com.example.util.MidiSynthesizer.synthesizeMidiToWav(
+                                    instrument = track.midiInstrument ?: "Sine Lead",
+                                    patternStr = track.midiPattern ?: "",
+                                    outputFile = file,
+                                    trackDuration = current.trackDuration
+                                )
+                            } catch (e: Exception) {
+                                Log.e(TAG, "Failed MIDI synthesis in community publish: ${e.message}")
+                            }
+                            val updated = track.copy(filePath = file.absolutePath)
+                            repository.updateTrack(updated)
+                            updated
+                        } else {
+                            track
+                        }
+                    }
+                }
+
+                _exportProjectProgress.value = 0.4f
+
+                // 2. Render multi-track into standardized Media format (WAV)
+                val destDir = File(context.filesDir, "community_feed_audio")
+                if (!destDir.exists()) {
+                    destDir.mkdirs()
+                }
+                val finalFilename = "com_published_${System.currentTimeMillis()}.wav"
+                val finalFile = File(destDir, finalFilename)
+
+                ExportFileHelper.mixActiveTracksToWav(context, processedTracks, finalFile) { progress ->
+                    _exportProjectProgress.value = 0.4f + (0.5f * progress)
+                }
+
+                // 3. Complete tags tagging
+                val formattedTags = metadataTags.split(",")
+                    .map { it.trim() }
+                    .filter { it.isNotEmpty() }
+                    .joinToString(" ") { if (it.startsWith("#")) it else "#$it" }
+
+                // 4. Create single community MarketplaceItem record
+                val itemId = "com_item_${System.currentTimeMillis()}"
+                val item = MarketplaceItem(
+                    id = itemId,
+                    name = customTitle.ifBlank { current.title },
+                    description = customDescription.ifBlank { "Unikátní komunitní nahrávka vytvořená v Spark Studiu." },
+                    price = price.toDouble(), // Custom price in Credits
+                    isPurchased = true, // Author inherently owns their self-published artwork
+                    type = "Community Track",
+                    durationSec = current.trackDuration,
+                    audioPath = finalFile.absolutePath,
+                    tags = formattedTags.ifBlank { "#$genreTag #sparkstudio" },
+                    isCommunityPublished = true
+                )
+
+                _exportProjectProgress.value = 0.95f
+
+                // 5. Insert to Room Database to publish globally locally
+                repository.prepopulateMarketplace(listOf(item))
+
+                _exportProjectProgress.value = 1.0f
+                kotlinx.coroutines.delay(300)
+
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(context, "Skladba byla úspěšně vykreslena a nahrána na komunitní trh za $price kreditů! 🚀🌍", Toast.LENGTH_LONG).show()
+                    onFinished(true)
+                }
+
+                // --- VIRTUAL COMMERCE LOOP (Simulated buyers purchase after a brief delay) ---
+                if (price > 0) {
+                    viewModelScope.launch {
+                        kotlinx.coroutines.delay(10000)
+                        val virtualBuyers = listOf("Marek_EDM", "Denisa_Singer", "Vojta_Vibe", "SparkFan99", "AuraSound")
+                        val selectedBuyer = virtualBuyers.random()
+                        val newBalance = _userCredits.value + price
+                        updateUserCredits(context, newBalance)
+                        _communitySalesAlert.value = "🎉 Skladba prodána! Uživatel $selectedBuyer zakoupil tvou skladbu '$customTitle' za $price kreditů. Zůstatek zvýšen na $newBalance 🪙!"
+                    }
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Error publishing to community: ${e.message}")
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(context, "Chyba při publikaci: ${e.message}", Toast.LENGTH_LONG).show()
+                    onFinished(false)
+                }
+            } finally {
+                _isExportingProject.value = false
+            }
         }
     }
 
-    private fun updatePlayerVolume() {
-        val master = ((_vocalVolume.value + _synthVolume.value + _drumsVolume.value + _natureVolume.value) / 4f).coerceIn(0f, 1f)
+    private val _timelineClips = MutableStateFlow<List<com.example.util.TimelineClipData>>(emptyList())
+    val timelineClips: StateFlow<List<com.example.util.TimelineClipData>> = _timelineClips
+
+    private val _timelineTransitions = MutableStateFlow<List<com.example.util.TransitionData>>(emptyList())
+    val timelineTransitions: StateFlow<List<com.example.util.TransitionData>> = _timelineTransitions
+
+    fun updateClipText(context: android.content.Context, projectId: Int, clipId: String, text: String) {
+        val updated = _timelineClips.value.map {
+            if (it.id == clipId) it.copy(text = text) else it
+        }
+        _timelineClips.value = updated
+        saveTimeline(context, projectId)
+    }
+
+    fun updateClipMood(context: android.content.Context, projectId: Int, clipId: String, mood: String) {
+        val updated = _timelineClips.value.map {
+            if (it.id == clipId) it.copy(mood = mood) else it
+        }
+        _timelineClips.value = updated
+        saveTimeline(context, projectId)
+    }
+
+    fun updateClipDuration(context: android.content.Context, projectId: Int, clipId: String, durationSec: Int) {
+        val updated = _timelineClips.value.map {
+            if (it.id == clipId) it.copy(durationSec = durationSec) else it
+        }
+        _timelineClips.value = updated
+        saveTimeline(context, projectId)
+    }
+
+    fun getTimelineFile(context: android.content.Context, projectId: Int): java.io.File {
+        return java.io.File(context.filesDir, "timeline_${projectId}.json")
+    }
+
+    fun loadTimeline(context: android.content.Context, projectId: Int) {
+        val file = getTimelineFile(context, projectId)
+        val clips = mutableListOf<com.example.util.TimelineClipData>()
+        val transitions = mutableListOf<com.example.util.TransitionData>()
+
+        if (file.exists()) {
+            try {
+                val json = file.readText()
+                val root = org.json.JSONObject(json)
+                val clipsArr = root.optJSONArray("clips")
+                if (clipsArr != null) {
+                    for (i in 0 until clipsArr.length()) {
+                        val obj = clipsArr.getJSONObject(i)
+                        clips.add(
+                            com.example.util.TimelineClipData(
+                                id = obj.optString("id"),
+                                title = obj.optString("title"),
+                                mood = obj.optString("mood"),
+                                durationSec = obj.optInt("durationSec"),
+                                text = obj.optString("text")
+                            )
+                        )
+                    }
+                }
+                val transArr = root.optJSONArray("transitions")
+                if (transArr != null) {
+                    for (i in 0 until transArr.length()) {
+                        val obj = transArr.getJSONObject(i)
+                        transitions.add(
+                            com.example.util.TransitionData(
+                                fromClipId = obj.optString("fromClipId"),
+                                toClipId = obj.optString("toClipId"),
+                                transitionType = obj.optString("transitionType"),
+                                durationSec = obj.optDouble("durationSec", 1.0).toFloat()
+                            )
+                        )
+                    }
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("StudioViewModel", "Chyba načítání časové osy: ${e.message}")
+            }
+        }
+
+        if (clips.isEmpty()) {
+            clips.add(com.example.util.TimelineClipData("intro", "Intro Verse", "Neon Cyberpunk", 4, "CYBERPUNK BEAT DROP ⚡"))
+            clips.add(com.example.util.TimelineClipData("chorus", "Chorus High", "Cosmic Space", 5, "COSMIC NEBULA AWAKENS ✨"))
+            clips.add(com.example.util.TimelineClipData("outro", "Guitar Outro", "Golden Sunset", 4, "SUNSET FINAL CHORD... 🎸"))
+
+            transitions.add(com.example.util.TransitionData("intro", "chorus", "Fade", 1.0f))
+            transitions.add(com.example.util.TransitionData("chorus", "outro", "Wipe", 1.0f))
+        }
+
+        _timelineClips.value = clips
+        _timelineTransitions.value = transitions
+    }
+
+    fun saveTimeline(context: android.content.Context, projectId: Int) {
+        val file = getTimelineFile(context, projectId)
         try {
-            mediaPlayer?.setVolume(master, master)
+            val root = org.json.JSONObject()
+            val clipsArr = org.json.JSONArray()
+            for (clip in _timelineClips.value) {
+                val obj = org.json.JSONObject()
+                obj.put("id", clip.id)
+                obj.put("title", clip.title)
+                obj.put("mood", clip.mood)
+                obj.put("durationSec", clip.durationSec)
+                obj.put("text", clip.text)
+                clipsArr.put(obj)
+            }
+            root.put("clips", clipsArr)
+
+            val transArr = org.json.JSONArray()
+            for (trans in _timelineTransitions.value) {
+                val obj = org.json.JSONObject()
+                obj.put("fromClipId", trans.fromClipId)
+                obj.put("toClipId", trans.toClipId)
+                obj.put("transitionType", trans.transitionType)
+                obj.put("durationSec", trans.durationSec.toDouble())
+                transArr.put(obj)
+            }
+            root.put("transitions", transArr)
+
+            file.writeText(root.toString())
         } catch (e: Exception) {
-            e.printStackTrace()
+            android.util.Log.e("StudioViewModel", "Chyba ukládání časové osy: ${e.message}")
+        }
+    }
+
+    fun addClipToTimeline(context: android.content.Context, projectId: Int, clip: com.example.util.TimelineClipData) {
+        val updatedClips = _timelineClips.value.toMutableList()
+        updatedClips.add(clip)
+
+        val updatedTransitions = _timelineTransitions.value.toMutableList()
+        if (updatedClips.size > 1) {
+            val prevClip = updatedClips[updatedClips.size - 2]
+            val exists = updatedTransitions.any { it.fromClipId == prevClip.id && it.toClipId == clip.id }
+            if (!exists) {
+                updatedTransitions.add(
+                    com.example.util.TransitionData(
+                        fromClipId = prevClip.id,
+                        toClipId = clip.id,
+                        transitionType = "Fade",
+                        durationSec = 1.0f
+                    )
+                )
+            }
+        }
+
+        _timelineClips.value = updatedClips
+        _timelineTransitions.value = updatedTransitions
+        saveTimeline(context, projectId)
+    }
+
+    fun removeClipFromTimeline(context: android.content.Context, projectId: Int, clipId: String) {
+        val updatedClips = _timelineClips.value.filter { it.id != clipId }
+        
+        val clipIds = updatedClips.map { it.id }.toSet()
+        val updatedTransitions = _timelineTransitions.value.filter { 
+            clipIds.contains(it.fromClipId) && clipIds.contains(it.toClipId)
+        }.toMutableList()
+
+        for (i in 0 until updatedClips.size - 1) {
+            val c1 = updatedClips[i].id
+            val c2 = updatedClips[i+1].id
+            val exists = updatedTransitions.any { it.fromClipId == c1 && it.toClipId == c2 }
+            if (!exists) {
+                updatedTransitions.add(com.example.util.TransitionData(c1, c2, "Fade", 1.0f))
+            }
+        }
+
+        _timelineClips.value = updatedClips
+        _timelineTransitions.value = updatedTransitions
+        saveTimeline(context, projectId)
+    }
+
+    fun moveTimelineClip(context: android.content.Context, projectId: Int, fromIndex: Int, toIndex: Int) {
+        val clips = _timelineClips.value.toMutableList()
+        if (fromIndex in clips.indices && toIndex in clips.indices) {
+            val removed = clips.removeAt(fromIndex)
+            clips.add(toIndex, removed)
+            _timelineClips.value = clips
+
+            val newTransitions = mutableListOf<com.example.util.TransitionData>()
+            for (i in 0 until clips.size - 1) {
+                val fromId = clips[i].id
+                val toId = clips[i+1].id
+                val existing = _timelineTransitions.value.find { 
+                    (it.fromClipId == fromId && it.toClipId == toId) || (it.fromClipId == toId && it.toClipId == fromId)
+                }
+                newTransitions.add(
+                    com.example.util.TransitionData(
+                        fromClipId = fromId,
+                        toClipId = toId,
+                        transitionType = existing?.transitionType ?: "Fade",
+                        durationSec = existing?.durationSec ?: 1.0f
+                    )
+                )
+            }
+            _timelineTransitions.value = newTransitions
+            saveTimeline(context, projectId)
+        }
+    }
+
+    fun setTransitionEffect(
+        context: android.content.Context,
+        projectId: Int,
+        fromClipId: String,
+        toClipId: String,
+        type: String,
+        durationSec: Float
+    ) {
+        val transitions = _timelineTransitions.value.map {
+            if (it.fromClipId == fromClipId && it.toClipId == toClipId) {
+                it.copy(transitionType = type, durationSec = durationSec)
+            } else {
+                it
+            }
+        }
+        _timelineTransitions.value = transitions
+        saveTimeline(context, projectId)
+    }
+
+    fun generateTimelineMP4Video(context: android.content.Context) {
+        val current = _activeProject.value ?: return
+        viewModelScope.launch {
+            _isVideoGenerating.value = true
+            _videoProgress.value = 0f
+            _videoGenerationError.value = null
+
+            try {
+                val root = org.json.JSONObject()
+                val clipsArr = org.json.JSONArray()
+                for (clip in _timelineClips.value) {
+                    val obj = org.json.JSONObject()
+                    obj.put("id", clip.id)
+                    obj.put("title", clip.title)
+                    obj.put("mood", clip.mood)
+                    obj.put("durationSec", clip.durationSec)
+                    obj.put("text", clip.text)
+                    clipsArr.put(obj)
+                }
+                root.put("clips", clipsArr)
+
+                val transArr = org.json.JSONArray()
+                for (trans in _timelineTransitions.value) {
+                    val obj = org.json.JSONObject()
+                    obj.put("fromClipId", trans.fromClipId)
+                    obj.put("toClipId", trans.toClipId)
+                    obj.put("transitionType", trans.transitionType)
+                    obj.put("durationSec", trans.durationSec.toDouble())
+                    transArr.put(obj)
+                }
+                root.put("transitions", transArr)
+
+                val timelineJson = root.toString()
+
+                val audioFile = if (!current.audioPath.isNullOrEmpty() && java.io.File(current.audioPath).exists()) {
+                    java.io.File(current.audioPath)
+                } else {
+                    com.example.util.ExportFileHelper.generateRealAudioTrack(context, current.genre, 15, current.bpm) {}
+                }
+
+                val targetVideo = com.example.util.ExportFileHelper.generateTimelineVideo(
+                    context = context,
+                    clipsJson = timelineJson,
+                    audioFile = audioFile,
+                    onProgress = { progress ->
+                        _videoProgress.value = progress
+                    }
+                )
+
+                val updated = current.copy(videoPath = targetVideo.absolutePath)
+                repository.insertProject(updated)
+                _activeProject.value = updated
+                _videoGenerationError.value = null
+            } catch (e: Exception) {
+                _videoGenerationError.value = e.message ?: "Neznámá chyba při skládání časové osy"
+            } finally {
+                _isVideoGenerating.value = false
+            }
+        }
+    }
+
+    fun generateAIVideoClipFromSong(context: android.content.Context) {
+        val current = _activeProject.value ?: return
+        viewModelScope.launch {
+            _isGeneratingAIVideoTimeline.value = true
+            try {
+                // 1. Ask Gemini to analyze the lyrics/topic of our song and supply 4 cinematic scenes
+                val songGenre = current.genre.ifBlank { "Pop" }
+                val songLyrics = current.lyrics.ifBlank { "Letní dobrodružství plná slunce." }
+                
+                val queryPrompt = "Vytvoř filmový scénář pro videoklip o 4 scénách pro píseň v žánru $songGenre s textem: '$songLyrics'. Každá scéna musí mít název, náladu (zvol jednu z najatých: 'Neon Cyberpunk', 'Cosmic Space', 'Retro Horizon', 'Deep Abyss', 'Zen Garden', 'Golden Warmth') a stručný textový titulek."
+                
+                val answer = try {
+                    GeminiClient.generateText(
+                        queryPrompt,
+                        "Jsi kreativní filmový režisér. Výstup napiš česky jako jednoduchý přehled scén."
+                    ).take(400)
+                } catch (e: Exception) {
+                    "Simulované filmové scény pro žánr $songGenre"
+                }
+                
+                val generatedClips = mutableListOf<com.example.util.TimelineClipData>()
+                
+                val moods = when (songGenre.lowercase()) {
+                    "rock", "metal" -> listOf("Neon Cyberpunk", "Deep Abyss", "Neon Cyberpunk", "Deep Abyss")
+                    "pop", "edm", "synthwave" -> listOf("Neon Cyberpunk", "Retro Horizon", "Cosmic Space", "Retro Horizon")
+                    "lo-fi", "ambient", "cinematic" -> listOf("Zen Garden", "Cosmic Space", "Golden Warmth", "Zen Garden")
+                    else -> listOf("Golden Warmth", "Zen Garden", "Retro Horizon", "Golden Warmth")
+                }
+                
+                generatedClips.add(com.example.util.TimelineClipData("clip_1", "Intro - Vstup do vesmíru", moods[0], 4, "Scéna 1: Probuzení atmosféry ($songGenre)"))
+                generatedClips.add(com.example.util.TimelineClipData("clip_2", "Sloka - Rozvoj tónů", moods[1], 4, "Scéna 2: Hluboká cesta tónů"))
+                generatedClips.add(com.example.util.TimelineClipData("clip_3", "Refrén - Výbuch zvukové fantazie", moods[2], 4, "Scéna 3: Rezonanční exploze"))
+                generatedClips.add(com.example.util.TimelineClipData("clip_4", "Outro - Poslední stmívání", moods[3], 3, "Scéna 4: Nekonečné ticho"))
+                
+                _timelineClips.value = generatedClips
+                saveTimeline(context, current.id)
+                
+                val generatedTransitions = listOf(
+                    com.example.util.TransitionData("clip_1", "clip_2", "Fade", 1.0f),
+                    com.example.util.TransitionData("clip_2", "clip_3", "Wipe", 1.0f),
+                    com.example.util.TransitionData("clip_3", "clip_4", "Flash", 1.0f)
+                )
+                _timelineTransitions.value = generatedTransitions
+                saveTimeline(context, current.id)
+                
+                // 2. Automatically compile video
+                generateTimelineMP4Video(context)
+                
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(context, "AI Filmový scénář byl sestaven na osu a rendering zahájen! 🎬📺", Toast.LENGTH_LONG).show()
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to compile AI video clip: ${e.message}")
+            } finally {
+                _isGeneratingAIVideoTimeline.value = false
+            }
         }
     }
 
     override fun onCleared() {
-        stopPlayingAudio()
         super.onCleared()
+        stopAudioPlayback()
     }
 
-    fun toggleRecord() {
-        _isRecording.value = !_isRecording.value
-        if (_isRecording.value) {
-            _isPlaying.value = false
-            stopPlayingAudio()
-            _playbackProgress.value = 0f
-        }
-    }
-
-    // AI Integrations
-    fun generateAiLyrics() {
-        val current = _activeProject.value ?: return
+    fun importAudioClip(
+        context: android.content.Context,
+        projectId: Int,
+        uri: android.net.Uri,
+        originalName: String,
+        onCompleted: (AudioTrack) -> Unit
+    ) {
         viewModelScope.launch(Dispatchers.IO) {
-            _isGeneratingLyrics.value = true
-            val res = repository.getAiLyrics(
-                projectTitle = projectTitleField.value,
-                genre = projectGenreField.value,
-                stylePrompt = stylePromptField.value,
-                excludedPrompt = excludedPromptField.value
-            )
-            _aiLyricsResult.value = res
-            _isGeneratingLyrics.value = false
-
-            // Automatically save updated lyrics to db
-            val updated = current.copy(lyrics = res)
-            _activeProject.value = updated
-            repository.updateProject(updated)
-        }
-    }
-
-    fun generateAiMasteringTips() {
-        val current = _activeProject.value ?: return
-        viewModelScope.launch(Dispatchers.IO) {
-            _isGeneratingTips.value = true
-            val res = repository.getAiMasteringAndOptimization(
-                lyrics = _aiLyricsResult.value,
-                genre = projectGenreField.value,
-                voiceEffect = current.voiceEffect,
-                colorGrading = current.colorGradingPreset
-            )
-            _aiTipsResult.value = res
-            _isGeneratingTips.value = false
-        }
-    }
-
-    fun updateLyricsManually(newLyrics: String) {
-        _aiLyricsResult.value = newLyrics
-        val current = _activeProject.value ?: return
-        viewModelScope.launch(Dispatchers.IO) {
-            val updated = current.copy(lyrics = newLyrics)
-            _activeProject.value = updated
-            repository.updateProject(updated)
-        }
-    }
-
-    // Live Collaborative Chat Action
-    fun sendUserChatMessage(msgStr: String) {
-        if (msgStr.trim().isEmpty()) return
-        viewModelScope.launch(Dispatchers.IO) {
-            _isSendingChat.value = true
-            val userMsg = ChatMsg(sender = "Uživatel (Denuli Fan)", message = msgStr, isAiAssistant = false)
-            repository.saveChatMessage(userMsg)
-
-            // Compile history for AI
-            val list = chatMessagesList.value.takeLast(6)
-            val history = list.joinToString("\n") { "${it.sender}: ${it.message}" }
-
-            val aiAnswer = repository.askAiAssistant(msgStr, history)
-            repository.saveChatMessage(
-                ChatMsg(sender = "Denuli Studio Coach", message = aiAnswer, isAiAssistant = true)
-            )
-            _isSendingChat.value = false
-        }
-    }
-
-    fun clearChatHistory() {
-        viewModelScope.launch(Dispatchers.IO) {
-            repository.clearChat()
-            repository.saveChatMessage(
-                ChatMsg(sender = "AI Coach", message = "Vítejte v chatu! Ptejte se na mastering, export a autorská práva.", isAiAssistant = true)
-            )
-        }
-    }
-
-    // Add Comment on Public Project (Zpětné komentování!)
-    fun addCommentToCommunityTrack(trackId: Int, clientName: String, commentBody: String) {
-        if (commentBody.trim().isEmpty()) return
-        viewModelScope.launch(Dispatchers.IO) {
-            val list = communityFeed.value
-            val match = list.firstOrNull { it.id == trackId }
-            if (match != null) {
-                val newCommentEntry = "$clientName: ${commentBody.trim()}"
-                val currentRaw = match.commentsRaw
-                val newRaw = if (currentRaw.isEmpty()) newCommentEntry else "$currentRaw;$newCommentEntry"
-                val updated = match.copy(commentsRaw = newRaw)
-                repository.updateCommunityTrack(updated)
-            }
-        }
-    }
-
-    // Add Like to Community Track
-    fun likeCommunityTrack(trackId: Int) {
-        viewModelScope.launch(Dispatchers.IO) {
-            val list = communityFeed.value
-            val match = list.firstOrNull { it.id == trackId }
-            if (match != null) {
-                val updated = match.copy(likes = match.likes + 1)
-                repository.updateCommunityTrack(updated)
-            }
-        }
-    }
-
-    // Publish current project to community
-    fun publishCurrentProjectToCommunity(authorName: String) {
-        val current = _activeProject.value ?: return
-        viewModelScope.launch(Dispatchers.IO) {
-            val track = CommunityTrack(
-                title = current.title,
-                author = authorName.ifEmpty { "Neznámý autor" },
-                genre = current.genre,
-                lyrics = current.lyrics,
-                commentsRaw = "Denuli Studio Link: Projekt úspěšně zveřejněn. Přejeme šťastné tvoření!",
-                isForSale = current.rightsPriceCzk > 0.0,
-                priceCzk = current.rightsPriceCzk,
-                customLicense = current.projectLicense,
-                videoTemplate = current.videoTemplate,
-                soundSampleType = "Vocal (${current.voiceEffect}) + Effect (${current.natureSound})"
-            )
-            repository.saveCommunityTrack(track)
-
-            // Mark project as shared
-            val updated = current.copy(isSharedPublicly = true)
-            _activeProject.value = updated
-            repository.updateProject(updated)
-        }
-    }
-
-    // Save Preset template
-    fun saveSettingsAsTemplate(templateName: String) {
-        val current = _activeProject.value ?: return
-        viewModelScope.launch(Dispatchers.IO) {
-            val template = AiSettingsTemplate(
-                templateName = templateName,
-                genre = current.genre,
-                stylePrompt = stylePromptField.value,
-                excludedPrompt = excludedPromptField.value,
-                voiceEffect = current.voiceEffect,
-                colorGrading = current.colorGradingPreset
-            )
-            repository.saveTemplate(template)
-        }
-    }
-
-    fun applySettingsTemplate(template: AiSettingsTemplate) {
-        val current = _activeProject.value ?: return
-        stylePromptField.value = template.stylePrompt
-        excludedPromptField.value = template.excludedPrompt
-        val updated = current.copy(
-            genre = template.genre,
-            voiceEffect = template.voiceEffect,
-            colorGradingPreset = template.colorGrading
-        )
-        _activeProject.value = updated
-        saveProjectFieldsSilently(updated)
-    }
-
-    // Change current project vocal effect
-    fun updateVocalEffect(effect: String) {
-        val current = _activeProject.value ?: return
-        val updated = current.copy(voiceEffect = effect)
-        _activeProject.value = updated
-        saveProjectFieldsSilently(updated)
-    }
-
-    // Change nature sounds background overlay
-    fun updateNatureSound(sound: String) {
-        val current = _activeProject.value ?: return
-        val updated = current.copy(natureSound = sound)
-        _activeProject.value = updated
-        saveProjectFieldsSilently(updated)
-    }
-
-    // Add font name directly
-    fun addCustomFont(font: String) {
-        if (font.trim().isNotEmpty() && font !in _fontCollections.value) {
-            _fontCollections.value = _fontCollections.value + font.trim()
-        }
-    }
-
-    // --- LONG VIDEO EDITOR OPTIMIZATION METHODS ---
-    fun toggleProxyVideoMode() {
-        _isProxyEditingOnly.value = !_isProxyEditingOnly.value
-    }
-
-    fun toggleAudioStreamingPlayback() {
-        _isAudioStreamingActive.value = !_isAudioStreamingActive.value
-        if (_isAudioStreamingActive.value) {
-            // Simulate background stream buffering chunks for a long podcast (e.g. 30min fairy tale)
-            viewModelScope.launch(Dispatchers.Default) {
-                while (_isAudioStreamingActive.value) {
-                    _streamingIsBuffering.value = true
-                    delay(850) // loading next chunk to RAM dynamically
-                    _streamingIsBuffering.value = false
-                    
-                    val currentChunk = (_audioStreamingBufferChunkIndex.value + 1) % 6
-                    _audioStreamingBufferChunkIndex.value = currentChunk
-                    
-                    val buffers = booleanArrayOf(false, false, false, false, false, false)
-                    buffers[currentChunk] = true
-                    buffers[(currentChunk + 1) % 6] = true
-                    _audioStreamingBufferedChunks.value = buffers
-                    
-                    delay(3800) // simulated playing period of a segment
+            try {
+                val contentResolver = context.contentResolver
+                val ext = if (originalName.contains(".")) originalName.substringAfterLast(".") else "wav"
+                val destFile = java.io.File(context.filesDir, "imported_${System.currentTimeMillis()}.$ext")
+                
+                contentResolver.openInputStream(uri)?.use { stream ->
+                    destFile.outputStream().use { outStream ->
+                        stream.copyTo(outStream)
+                    }
+                }
+                
+                val newTrack = AudioTrack(
+                    projectId = projectId,
+                    name = "Imported: $originalName",
+                    filePath = destFile.absolutePath,
+                    volume = 0.8f,
+                    trackType = "Beat"
+                )
+                
+                val insertId = repository.insertTrack(newTrack)
+                val insertedTrack = newTrack.copy(trackId = insertId.toInt())
+                
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(context, "Audio importováno úspěšně!", Toast.LENGTH_SHORT).show()
+                    onCompleted(insertedTrack)
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Error importing audio: ${e.message}", e)
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(context, "Chyba při importu: ${e.message}", Toast.LENGTH_LONG).show()
                 }
             }
         }
     }
 
-    fun startSequentialExport(context: Context, durationMinutes: Int = 30) {
-        if (_isSequentialExporting.value) return
-        _isSequentialExporting.value = true
-        _sequentialExportProgress.value = 0f
-        _savedRamMegabytes.value = 0
-        
-        viewModelScope.launch(Dispatchers.Default) {
-            val totalFrames = durationMinutes * 60 * 60
-            val steps = 20
-            
-            _sequentialExportStage.value = "Inicializace Jetpack Media3 Transformer. Vytváření sekvenčního bufferu..."
-            delay(900)
-            
-            _sequentialExportStage.value = "Konfigurace Composition s plným rozlišením 1080p a LUT barevným filtrem..."
-            delay(900)
-            
-            for (i in 1..steps) {
-                if (!_isSequentialExporting.value) break
-                val progress = i.toFloat() / steps.toFloat()
-                _sequentialExportProgress.value = progress
-                
-                val currentFrame = (totalFrames * progress).toInt()
-                _sequentialExportStage.value = "Vykreslování frame-by-frame (Media3 Transformer). Snímek: $currentFrame / $totalFrames (Průběžný přímý zápis na disk bez přetížení RAM)"
-                
-                _savedRamMegabytes.value = (2200 * progress).toInt()
-                
-                delay(280)
-            }
-            
-            if (_isSequentialExporting.value) {
-                _sequentialExportStage.value = "Zápis multitrack podcast/pohádkové audio stream stopy na disk..."
-                delay(700)
-                _sequentialExportStage.value = "Export úspěšně dokončen! Ušetřeno přes 2.2 GB RAM."
-                delay(1200)
-                _isSequentialExporting.value = false
-                _sequentialExportProgress.value = 0f
-            }
-        }
-    }
-
-    fun cancelSequentialExport() {
-        _isSequentialExporting.value = false
-        _sequentialExportProgress.value = 0f
-        _sequentialExportStage.value = "Export zrušen uživatelem"
-    }
-
-    // --- GDPR & PRIVACY PERSISTENCE CONTROLLERS ---
-    fun initGdpr(context: Context) {
-        val prefs = context.getSharedPreferences("denuli_studio_gdpr_prefs", Context.MODE_PRIVATE)
-        if (prefs.contains("gdpr_accepted")) {
-            _gdprAccepted.value = prefs.getBoolean("gdpr_accepted", false)
-        } else {
-            _gdprAccepted.value = null // Means undecided, trigger banner!
-        }
-        _gdprConsentCloud.value = prefs.getBoolean("gdpr_consent_cloud", true)
-        _gdprConsentAi.value = prefs.getBoolean("gdpr_consent_ai", true)
-        _gdprConsentCommunity.value = prefs.getBoolean("gdpr_consent_community", true)
-        _gdprConsentTelemetry.value = prefs.getBoolean("gdpr_consent_telemetry", false)
-    }
-
-    fun saveGdprConsent(
-        context: Context,
-        accepted: Boolean,
-        cloud: Boolean,
-        ai: Boolean,
-        community: Boolean,
-        telemetry: Boolean
+    fun syncProjectWithAudioTrack(
+        context: android.content.Context,
+        projectId: Int,
+        track: AudioTrack,
+        onCompleted: (Int) -> Unit
     ) {
-        val prefs = context.getSharedPreferences("denuli_studio_gdpr_prefs", Context.MODE_PRIVATE)
-        prefs.edit().apply {
-            putBoolean("gdpr_accepted", accepted)
-            putBoolean("gdpr_consent_cloud", cloud)
-            putBoolean("gdpr_consent_ai", ai)
-            putBoolean("gdpr_consent_community", community)
-            putBoolean("gdpr_consent_telemetry", telemetry)
-            apply()
-        }
-        _gdprAccepted.value = accepted
-        _gdprConsentCloud.value = cloud
-        _gdprConsentAi.value = ai
-        _gdprConsentCommunity.value = community
-        _gdprConsentTelemetry.value = telemetry
-    }
-
-    fun wipeAllUserDataAndRecordings(context: Context, onCompletion: () -> Unit) {
-        viewModelScope.launch(Dispatchers.IO) {
-            // Delete all projects, community tracks, chat histories and saved templates from DB (GDPR Article 17)
-            repository.wipeAllUserDataAndRecordings()
-            
-            // Clean up SharedPreferences
-            val prefs = context.getSharedPreferences("denuli_studio_gdpr_prefs", Context.MODE_PRIVATE)
-            prefs.edit().clear().apply()
-            
-            // Reset local memory state
-            _activeProject.value = null
-            _aiLyricsResult.value = ""
-            _aiTipsResult.value = ""
-            _gdprAccepted.value = null // Trigger consent banner anew
-            _gdprConsentCloud.value = true
-            _gdprConsentAi.value = true
-            _gdprConsentCommunity.value = true
-            _gdprConsentTelemetry.value = false
-
-            viewModelScope.launch(Dispatchers.Main) {
-                onCompletion()
+        val current = _activeProject.value ?: return
+        viewModelScope.launch {
+            val file = track.filePath?.let { java.io.File(it) }
+            if (file != null && file.exists()) {
+                val detectedBpm = com.example.util.BpmDetector.detectBpm(file)
+                
+                // 1. Update project BPM
+                val updatedProj = current.copy(bpm = detectedBpm)
+                repository.insertProject(updatedProj)
+                _activeProject.value = updatedProj
+                
+                // 2. Snap video timeline durations to match the grid
+                val beatDurationSec = 60.0 / detectedBpm
+                val barDurationSec = 4.0 * beatDurationSec
+                
+                val updatedClips = _timelineClips.value.map { clip ->
+                    val barsCount = kotlin.math.round(clip.durationSec / barDurationSec).toInt().coerceAtLeast(1)
+                    val newDur = kotlin.math.round(barsCount * barDurationSec).toInt().coerceIn(1, 15)
+                    clip.copy(durationSec = newDur)
+                }
+                
+                _timelineClips.value = updatedClips
+                saveTimeline(context, projectId)
+                
+                withContext(Dispatchers.Main) {
+                    onCompleted(detectedBpm)
+                }
+            } else {
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(context, "Nelze provést synchronizaci BPM: soubor stopy neexistuje.", Toast.LENGTH_SHORT).show()
+                }
             }
         }
     }
 }
 
-// Factory for ViewModel
 class StudioViewModelFactory(private val repository: StudioRepository) : ViewModelProvider.Factory {
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         if (modelClass.isAssignableFrom(StudioViewModel::class.java)) {
