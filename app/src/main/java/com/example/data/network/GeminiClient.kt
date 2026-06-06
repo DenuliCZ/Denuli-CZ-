@@ -82,9 +82,9 @@ object GeminiClient {
 
     suspend fun generateText(prompt: String, systemPrompt: String? = null): String {
         val apiKey = getApiKey()
-        if (apiKey.isEmpty() || apiKey == "YOUR_API_KEY_HERE") {
-            Log.e(TAG, "Gemini API Key is not set in BuildConfig")
-            return "Chyba: API klíč není nakonfigurovaný v AI Studio Secrets panelu."
+        if (apiKey.isEmpty() || apiKey == "YOUR_API_KEY_HERE" || apiKey.isBlank()) {
+            Log.w(TAG, "Gemini API Key is not set in BuildConfig, throwing exception to trigger offline fallback")
+            throw Exception("Missing or placeholder Gemini API Key")
         }
 
         val request = GeminiRequest(
