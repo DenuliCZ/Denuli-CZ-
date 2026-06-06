@@ -46,7 +46,7 @@ data class Candidate(
 )
 
 interface GeminiApiService {
-    @POST("v1beta/models/gemini-3.5-flash:generateContent")
+    @POST("v1beta/models/gemini-1.5-flash:generateContent")
     suspend fun generateContent(
         @Query("key") apiKey: String,
         @Body request: GeminiRequest
@@ -88,13 +88,7 @@ object GeminiClient {
 
         val request = GeminiRequest(
             contents = listOf(Content(parts = listOf(Part(text = prompt)))),
-            systemInstruction = systemPrompt?.let { Content(parts = listOf(Part(text = it))) },
-            safetySettings = listOf(
-                SafetySetting("HARM_CATEGORY_HARASSMENT", "BLOCK_NONE"),
-                SafetySetting("HARM_CATEGORY_HATE_SPEECH", "BLOCK_NONE"),
-                SafetySetting("HARM_CATEGORY_SEXUALLY_EXPLICIT", "BLOCK_NONE"),
-                SafetySetting("HARM_CATEGORY_DANGEROUS_CONTENT", "BLOCK_NONE")
-            )
+            systemInstruction = systemPrompt?.let { Content(parts = listOf(Part(text = it))) }
         )
 
         return try {

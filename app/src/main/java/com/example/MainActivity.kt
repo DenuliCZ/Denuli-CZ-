@@ -1834,7 +1834,7 @@ fun StudioTab(
                 }
             }
 
-            // --- NOVOST V30: AI CLOUD SONG GENERATOR (Suno/Udio Style) ---
+            // --- NOVOST V30: AI CLOUD SONG GENERATOR ---
             item {
                 var aiSongTopic by remember { mutableStateOf("") }
                 var aiSongGenre by remember { mutableStateOf("Synthwave") }
@@ -1864,7 +1864,7 @@ fun StudioTab(
                             )
                             Spacer(modifier = Modifier.width(6.dp))
                             Text(
-                                text = "CLOUD GENERÁTOR SONGŮ (Suno / Udio)",
+                                text = "CLOUD GENERÁTOR SKLADEB (Spark AI)",
                                 fontWeight = FontWeight.Bold,
                                 color = Color.White,
                                 fontSize = 14.sp
@@ -2008,7 +2008,7 @@ fun StudioTab(
                                 shape = RoundedCornerShape(10.dp)
                             ) {
                                 Text(
-                                    text = "AI GENEROVAT SONG (Styl Suno/Udio) ⚡",
+                                    text = "AI GENEROVAT PLNOU SKLADBU (Cloud API) ⚡",
                                     fontWeight = FontWeight.Bold,
                                     fontSize = 12.sp
                                 )

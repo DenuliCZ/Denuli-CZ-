@@ -22,7 +22,7 @@ object LegalTexts {
         * Věk / Potvrzení plnoletosti (18+): Z důvodu ochrany nezletilých a finančních aspektů tržiště vyžadujeme explicitní ověření věku na kartě „Můj Profil“.
 
         B. Generativní AI data (Vstupy a Výstupy)
-        * Textová zadání (Prompty): Texty zadané pro generování textů písní (Gemini API) nebo kompletních skladeb (Suno/Udio).
+        * Textová zadání (Prompty): Texty zadané pro generování textů písní (Gemini API) nebo kompletních skladeb prostřednictvím cloudových AI generátorů.
         * Hlasové nahrávky a vokály: Audio data nahraná přes mikrofon uživatele, která slouží pro mixážní pult.
         * Upozornění: Všechny AI prompty a požadavky jsou zpracovávány bezpečně a šifrovaně přes oficiální HTTPS API Google Gemini a integrované cloudové služby. Nejsou využívány pro trénování veřejných modelů bez Vašeho výslovného souhlasu.
 
@@ -77,7 +77,7 @@ object LegalTexts {
 
         ---
 
-        2. LICENČNÍ UJEDNÁNÍ PRO GENERATIVNÍ AI (SUNO/UDIO/GEMINI)
+        2. LICENČNÍ UJEDNÁNÍ PRO GENERATIVNÍ AI (CLOUD SYNTHESIS & GEMINI)
         Aplikace obsahuje prémiové cloudové integrace pro generování hotových písní a videoklipů na bázi umělé inteligence.
 
         1. Vlastnictví promptů: Uživatel prohlašuje, že jím zadané téma, nápady či texty neporušují autorská práva třetích stran, neobsahují vulgarismy a jsou v souladu se zákony České republiky.

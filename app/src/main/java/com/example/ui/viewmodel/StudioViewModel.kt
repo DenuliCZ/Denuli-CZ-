@@ -702,7 +702,7 @@ class StudioViewModel(private val repository: StudioRepository) : ViewModel() {
                 val mainBeatTrack = tracks.find { it.trackType == "Beat" }
                 if (mainBeatTrack != null) {
                     val updatedBeat = mainBeatTrack.copy(
-                        name = "Hlavní AI Song ($selectedGenre - Suno/Udio)",
+                        name = "Hlavní AI Skladba ($selectedGenre - Spark Cloud)",
                         filePath = targetFile.absolutePath,
                         volume = 0.85f
                     )
@@ -710,7 +710,7 @@ class StudioViewModel(private val repository: StudioRepository) : ViewModel() {
                 } else {
                     val insertBeat = com.example.data.database.AudioTrack(
                         projectId = current.id,
-                        name = "Hlavní AI Song ($selectedGenre - Suno/Udio)",
+                        name = "Hlavní AI Skladba ($selectedGenre - Spark Cloud)",
                         filePath = targetFile.absolutePath,
                         volume = 0.85f,
                         trackType = "Beat"
