@@ -463,12 +463,47 @@ fun SettingsDialog(
 
                 // API Key Field Box
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Text(
-                        text = "VÁŠ GEMINI_API_KEY",
-                        color = Color.White,
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Bold
-                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "VÁŠ GEMINI_API_KEY",
+                            color = Color.White,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+
+                        // Dynamic visual connection status indicator
+                        val currentActiveKey = com.example.data.network.GeminiClient.customApiKey
+                        val hasKey = currentActiveKey.isNotBlank()
+                        val isConfiguredKeyMatch = apiKeyInput.trim() == currentActiveKey.trim()
+
+                        val (statusText, statusColor, statusBg) = when {
+                            isTestingConnection -> Triple("OVĚŘOVÁNÍ...", AccentNeonCyan, Color(0xFF131D24))
+                            isTestSuccess == true -> Triple("🟢 PŘIPOJENO", Color(0xFF00FFC2), Color(0xFF0C2417))
+                            isTestSuccess == false -> Triple("🔴 CHYBA SPOJENÍ", Color(0xFFFF5252), Color(0xFF240C12))
+                            !isConfiguredKeyMatch -> Triple("🟡 NEULOŽENÉ ZMĚNY", Color(0xFFFFCC00), Color(0xFF2B220B))
+                            hasKey -> Triple("🟢 PŘIPOJENO (ULOŽENO)", Color(0xFF00FFC2), Color(0xFF0C2417))
+                            else -> Triple("⚪ NEAKTIVNÍ", Color.Gray, Color(0xFF181524))
+                        }
+
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(4.dp))
+                                .background(statusBg)
+                                .border(0.5.dp, statusColor.copy(alpha = 0.5f), RoundedCornerShape(4.dp))
+                                .padding(horizontal = 6.dp, vertical = 2.dp)
+                        ) {
+                            Text(
+                                text = statusText,
+                                color = statusColor,
+                                fontSize = 9.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
                     OutlinedTextField(
                         value = apiKeyInput,
                         onValueChange = {
@@ -522,7 +557,7 @@ fun SettingsDialog(
                                 fontSize = 11.sp,
                                 lineHeight = 14.sp,
                                 modifier = Modifier.weight(1f)
-                            )
+                              )
                         }
                     }
                 }
@@ -532,18 +567,49 @@ fun SettingsDialog(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    // Save key locally
+                    // Save key locally and run immediate validation
                     Button(
                         onClick = {
-                            val p = context.getSharedPreferences("spark_settings", android.content.Context.MODE_PRIVATE)
-                            p.edit().putString("gemini_key", apiKeyInput.trim()).apply()
-                            com.example.data.network.GeminiClient.customApiKey = apiKeyInput.trim()
-                            Toast.makeText(context, "Klíč byl uložen do prostředí aplikace! 💾", Toast.LENGTH_SHORT).show()
+                            if (apiKeyInput.trim().isBlank()) {
+                                Toast.makeText(context, "Nejprve zadejte API klíč pro uložení", Toast.LENGTH_SHORT).show()
+                                return@Button
+                            }
+                            isTestingConnection = true
+                            testResult = "Právě se připojuji k API serverům pro uložení a ověření..."
+                            isTestSuccess = null
+                            coroutineScope.launch {
+                                try {
+                                    val originalKey = com.example.data.network.GeminiClient.customApiKey
+                                    com.example.data.network.GeminiClient.customApiKey = apiKeyInput.trim()
+                                    val response = com.example.data.network.GeminiClient.generateText(
+                                        "Zkontroluj toto spojení. Odpověz pouze jediným slovem: 'OK'."
+                                    )
+                                    isTestingConnection = false
+                                    if (response.contains("OK", ignoreCase = true) || response.isNotBlank()) {
+                                        isTestSuccess = true
+                                        testResult = "Klíč byl úspěšně uložen a ověřen! Spojení se servery Google Gemini funguje bezchybně. 🎉"
+                                        val p = context.getSharedPreferences("spark_settings", android.content.Context.MODE_PRIVATE)
+                                        p.edit().putString("gemini_key", apiKeyInput.trim()).apply()
+                                    } else {
+                                        isTestSuccess = false
+                                        testResult = "Klíč byl uložen, ale vrátil neočekávanou odpověď."
+                                        val p = context.getSharedPreferences("spark_settings", android.content.Context.MODE_PRIVATE)
+                                        p.edit().putString("gemini_key", apiKeyInput.trim()).apply()
+                                    }
+                                } catch (e: Exception) {
+                                    isTestingConnection = false
+                                    isTestSuccess = false
+                                    testResult = "Klíč byl uložen, avšak spojení selhalo: ${e.message}"
+                                    val p = context.getSharedPreferences("spark_settings", android.content.Context.MODE_PRIVATE)
+                                    p.edit().putString("gemini_key", apiKeyInput.trim()).apply()
+                                }
+                            }
                         },
                         colors = ButtonDefaults.buttonColors(containerColor = AccentNeonCyan),
+                        enabled = !isTestingConnection,
                         modifier = Modifier.weight(1f).testTag("settings_save_api_key_btn")
                     ) {
-                        Text("ULOŽIT KLÍČ 💾", color = Color.Black, fontWeight = FontWeight.Bold, fontSize = 10.sp)
+                        Text("ULOŽIT A OVĚŘIT 💾", color = Color.Black, fontWeight = FontWeight.Bold, fontSize = 10.sp)
                     }
 
                     // Test key function button
@@ -558,7 +624,6 @@ fun SettingsDialog(
                             isTestSuccess = null
                             coroutineScope.launch {
                                 try {
-                                    // Set temporarily to test
                                     val originalKey = com.example.data.network.GeminiClient.customApiKey
                                     com.example.data.network.GeminiClient.customApiKey = apiKeyInput.trim()
                                     val response = com.example.data.network.GeminiClient.generateText(
@@ -568,7 +633,6 @@ fun SettingsDialog(
                                     if (response.contains("OK", ignoreCase = true) || response.isNotBlank()) {
                                         isTestSuccess = true
                                         testResult = "Zkouška úspěšná! Spojení se servery Google Gemini funguje bezchybně. 🎉 Odpověď modelu: $response"
-                                        // Save officially since it passed
                                         val p = context.getSharedPreferences("spark_settings", android.content.Context.MODE_PRIVATE)
                                         p.edit().putString("gemini_key", apiKeyInput.trim()).apply()
                                     } else {
@@ -5947,15 +6011,31 @@ fun LegalAndProfileTab(
                             color = AccentNeonCyan,
                             fontSize = 12.sp
                         )
+
+                        // Dynamic visual connection status indicator
+                        val currentActiveKey = com.example.data.network.GeminiClient.customApiKey
+                        val hasKey = currentActiveKey.isNotBlank()
+                        val isConfiguredKeyMatch = apiKeyInput.trim() == currentActiveKey.trim()
+
+                        val (statusText, statusColor, statusBg) = when {
+                            isTestingConnection -> Triple("OVĚŘOVÁNÍ...", AccentNeonCyan, Color(0xFF131D24))
+                            isTestSuccess == true -> Triple("🟢 PŘIPOJENO", Color(0xFF00FFC2), Color(0xFF0C2417))
+                            isTestSuccess == false -> Triple("🔴 CHYBA SPOJENÍ", Color(0xFFFF5252), Color(0xFF240C12))
+                            !isConfiguredKeyMatch -> Triple("🟡 NEULOŽENÉ ZMĚNY", Color(0xFFFFCC00), Color(0xFF2B220B))
+                            hasKey -> Triple("🟢 PŘIPOJENO (ULOŽENO)", Color(0xFF00FFC2), Color(0xFF0C2417))
+                            else -> Triple("⚪ NEAKTIVNÍ", Color.Gray, Color(0xFF181524))
+                        }
+
                         Box(
                             modifier = Modifier
                                 .clip(RoundedCornerShape(4.dp))
-                                .background(if (com.example.data.network.GeminiClient.customApiKey.isNotBlank()) AccentNeonCyan else Color(0xFF2E2055))
+                                .background(statusBg)
+                                .border(0.5.dp, statusColor.copy(alpha = 0.5f), RoundedCornerShape(4.dp))
                                 .padding(horizontal = 6.dp, vertical = 2.dp)
                         ) {
                             Text(
-                                text = if (com.example.data.network.GeminiClient.customApiKey.isNotBlank()) "AKTIVNÍ KEY" else "OFFLINE FALLBACK",
-                                color = if (com.example.data.network.GeminiClient.customApiKey.isNotBlank()) Color.Black else Color.LightGray,
+                                text = statusText,
+                                color = statusColor,
                                 fontSize = 9.sp,
                                 fontWeight = FontWeight.Bold
                             )
@@ -6036,17 +6116,50 @@ fun LegalAndProfileTab(
                     ) {
                         Button(
                             onClick = {
-                                val p = context.getSharedPreferences("spark_settings", android.content.Context.MODE_PRIVATE)
-                                p.edit().putString("gemini_key", apiKeyInput.trim()).apply()
-                                com.example.data.network.GeminiClient.customApiKey = apiKeyInput.trim()
-                                isSavedSuccessfully = true
-                                Toast.makeText(context, "Klíč byl uložen do prostředí aplikace! 💾", Toast.LENGTH_SHORT).show()
+                                if (apiKeyInput.trim().isBlank()) {
+                                    Toast.makeText(context, "Nejprve zadejte API klíč pro uložení", Toast.LENGTH_SHORT).show()
+                                    return@Button
+                                }
+                                isTestingConnection = true
+                                testResult = "Právě se připojuji k API serverům pro uložení a ověření..."
+                                isTestSuccess = null
+                                coroutineScope.launch {
+                                    try {
+                                        val originalKey = com.example.data.network.GeminiClient.customApiKey
+                                        com.example.data.network.GeminiClient.customApiKey = apiKeyInput.trim()
+                                        val response = com.example.data.network.GeminiClient.generateText(
+                                            "Zkontroluj toto spojení. Odpověz pouze jediným slovem: 'OK'."
+                                        )
+                                        isTestingConnection = false
+                                        if (response.contains("OK", ignoreCase = true) || response.isNotBlank()) {
+                                            isTestSuccess = true
+                                            testResult = "Klíč byl úspěšně uložen a ověřen! Spojení se servery Google Gemini funguje bezchybně. 🎉"
+                                            val p = context.getSharedPreferences("spark_settings", android.content.Context.MODE_PRIVATE)
+                                            p.edit().putString("gemini_key", apiKeyInput.trim()).apply()
+                                            isSavedSuccessfully = true
+                                        } else {
+                                            isTestSuccess = false
+                                            testResult = "Klíč byl uložen, ale vrátil neočekávanou odpověď."
+                                            val p = context.getSharedPreferences("spark_settings", android.content.Context.MODE_PRIVATE)
+                                            p.edit().putString("gemini_key", apiKeyInput.trim()).apply()
+                                            isSavedSuccessfully = true
+                                        }
+                                    } catch (e: Exception) {
+                                        isTestingConnection = false
+                                        isTestSuccess = false
+                                        testResult = "Klíč byl uložen, avšak spojení selhalo: ${e.message}"
+                                        val p = context.getSharedPreferences("spark_settings", android.content.Context.MODE_PRIVATE)
+                                        p.edit().putString("gemini_key", apiKeyInput.trim()).apply()
+                                        isSavedSuccessfully = true
+                                    }
+                                }
                             },
                             colors = ButtonDefaults.buttonColors(containerColor = if (isSavedSuccessfully) Color(0xFF00C750) else AccentNeonCyan),
+                            enabled = !isTestingConnection,
                             modifier = Modifier.weight(1f).testTag("profile_save_api_key_btn")
                         ) {
                             Text(
-                                text = if (isSavedSuccessfully) "ULOŽENO! ✅" else "ULOŽIT KLÍČ 💾",
+                                text = if (isSavedSuccessfully && isTestSuccess == true) "ULOŽENO A OK! ✅" else "ULOŽIT A OVĚŘIT 💾",
                                 color = Color.Black,
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 11.sp
