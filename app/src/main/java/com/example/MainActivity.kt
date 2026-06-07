@@ -76,6 +76,11 @@ class MainActivity : ComponentActivity() {
         val factory = StudioViewModelFactory(repository)
         val viewModel = ViewModelProvider(this, factory)[StudioViewModel::class.java]
 
+        // Load saved Gemini API Key
+        val sharedPrefs = getSharedPreferences("spark_settings", MODE_PRIVATE)
+        val savedKey = sharedPrefs.getString("gemini_key", "") ?: ""
+        com.example.data.network.GeminiClient.customApiKey = savedKey
+
         viewModel.initializeOnboarding(this)
 
         setContent {
@@ -582,7 +587,6 @@ fun GuideTab(
 ) {
     val context = LocalContext.current
     var isNewProjectDialogShown by remember { mutableStateOf(false) }
-    var isPitchDeckOpen by remember { mutableStateOf(false) }
 
     LazyColumn(
         modifier = Modifier
@@ -590,47 +594,6 @@ fun GuideTab(
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        item {
-            Card(
-                colors = CardDefaults.cardColors(containerColor = Color(0xFF1E0A44)),
-                shape = RoundedCornerShape(18.dp),
-                border = BorderStroke(1.5.dp, AccentNeonCyan),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable { isPitchDeckOpen = true }
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(18.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Box(
-                                modifier = Modifier
-                                    .clip(RoundedCornerShape(4.dp))
-                                    .background(AccentNeonCyan)
-                                    .padding(horizontal = 6.dp, vertical = 2.dp)
-                            ) {
-                                Text("PITCH DECK", color = Color.Black, fontSize = 9.sp, fontWeight = FontWeight.Bold)
-                            }
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text("INVESTIČNÍ MÍSTNOST 📈", color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold)
-                        }
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            text = "Vdechněte nápadu duši! Otevřete interaktivní prezentaci vizualizující řešení pro investory a partnery.",
-                            color = Color(0xFFC7C5D6),
-                            fontSize = 11.sp
-                        )
-                    }
-                    Text("💡", fontSize = 28.sp, modifier = Modifier.padding(start = 10.dp))
-                }
-            }
-        }
-
         item {
             Card(
                 colors = CardDefaults.cardColors(containerColor = AccentPurple),
@@ -821,292 +784,6 @@ fun GuideTab(
             dismissButton = {
                 TextButton(onClick = { isNewProjectDialogShown = false }) {
                     Text("Zrušit", color = Color.White)
-                }
-            }
-        )
-    }
-
-    if (isPitchDeckOpen) {
-        var activeSlide by remember { mutableStateOf(0) } // 0: Vize, 1: Problém, 2: Simulátor příjmů, 3: Odeslat oslovení
-        var estimateUsers by remember { mutableStateOf(1200f) }
-        var estimatePrice by remember { mutableStateOf(180f) }
-        
-        var senderName by remember { mutableStateOf("") }
-        var senderContact by remember { mutableStateOf("") }
-        var senderMessage by remember { mutableStateOf("Dobrý den, zaujal mě váš hudebně-vizuální projekt SPARK. Pojďme se spojit a probrat možnosti investice či licenčního partnerství.") }
-        var pitchSubmitted by remember { mutableStateOf(false) }
-
-        AlertDialog(
-            onDismissRequest = { isPitchDeckOpen = false },
-            containerColor = Color(0xFF0F0B24),
-            properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false),
-            modifier = Modifier
-                .fillMaxWidth(0.94f)
-                .fillMaxHeight(0.85f)
-                .border(2.dp, AccentNeonCyan, RoundedCornerShape(20.dp)),
-            title = {
-                Column {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = "💡 PREZENTAČNÍ MÍSTNOST SPARK",
-                            fontWeight = FontWeight.Bold,
-                            color = AccentNeonCyan,
-                            fontSize = 15.sp
-                        )
-                        IconButton(onClick = { isPitchDeckOpen = false }) {
-                            Icon(imageVector = Icons.Default.Close, contentDescription = "Zavřít", tint = Color.Gray)
-                        }
-                    }
-                    Text(
-                        text = "Vdechněte nápadu duši a získejte technické partnery / investory 📈",
-                        color = Color.LightGray,
-                        fontSize = 10.sp
-                    )
-                }
-            },
-            text = {
-                Column(modifier = Modifier.fillMaxSize()) {
-                    // Slide Select tabs
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .horizontalScroll(rememberScrollState())
-                            .padding(vertical = 4.dp),
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
-                        val slideNames = listOf("💎 Vize", "⚠️ Problém & Řešení", "📊 Kalkulačka SaaS", "✉️ Oslovení partnerů")
-                        slideNames.forEachIndexed { sIdx, sName ->
-                            val isSel = activeSlide == sIdx
-                            Box(
-                                modifier = Modifier
-                                    .clip(RoundedCornerShape(8.dp))
-                                    .background(if (isSel) AccentNeonCyan else Color(0xFF1B113A))
-                                    .clickable { activeSlide = sIdx }
-                                    .padding(horizontal = 10.dp, vertical = 6.dp)
-                            ) {
-                                Text(
-                                    text = sName,
-                                    fontSize = 10.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = if (isSel) Color.Black else Color.White
-                                )
-                            }
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(10.dp))
-
-                    // Content based on active slide
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .weight(1f)
-                            .verticalScroll(rememberScrollState())
-                            .background(Color(0xFF070415), RoundedCornerShape(12.dp))
-                            .border(1.dp, Color(0xFF1E133F), RoundedCornerShape(12.dp))
-                            .padding(14.dp)
-                    ) {
-                        when (activeSlide) {
-                            0 -> {
-                                Text("JEDNA APLIKACE PRO CELÉ MULTIMÉDIUM", color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold)
-                                Spacer(modifier = Modifier.height(6.dp))
-                                Text(
-                                    text = "Uživatel v jediné aplikaci dokáže otextovat píseň přes Gemini AI, vygenerovat hudební stopy, vygenerovat a sestavit videoklip a nahrát jej na vestavěnou komunitní síť s licenčním tržištěm.\n\n" +
-                                           "Tento koncept dává tvůrčí svobodu každému laikovi, mamince s dětmi, začínajícímu umělci i lidem bez technického zázemí či drahého harwaru.",
-                                    color = Color(0xFFD1CFE2),
-                                    fontSize = 11.sp,
-                                    lineHeight = 16.sp
-                                )
-                                Spacer(modifier = Modifier.height(12.dp))
-                                Box(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .background(Color(0xFF191136), RoundedCornerShape(8.dp))
-                                        .padding(10.dp)
-                                ) {
-                                    Column {
-                                        Text("🌟 HLAVNÍ PILÍŘE PRODUKTU:", color = AccentNeonCyan, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                                        Spacer(modifier = Modifier.height(4.dp))
-                                        Text("• Textový spolurežisér (Gemini AI songwriting assist)\n" +
-                                             "• Audio syntezátor & orchestrátor s lidským nádechem\n" +
-                                             "• Video generátor (Sora, Runway, Luma integrace)\n" +
-                                             "• Licensing & Social share (Komunita & Autorská práva)", color = Color.White, fontSize = 10.sp, lineHeight = 14.sp)
-                                    }
-                                }
-                            }
-                            1 -> {
-                                Text("PROBLÉM: Fragmentace tvořivého trhu (Market Pain)", color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold)
-                                Spacer(modifier = Modifier.height(4.dp))
-                                Text(
-                                    text = "Dnešní autor musí platit minimálně 5 různých předplatných:\n" +
-                                           "1. ChatGPT / Gemini (Lyrics)\n" +
-                                           "2. Suno / Udio (Audio)\n" +
-                                           "3. Midjourney (Covers)\n" +
-                                           "4. Runway / Sora (Video clips)\n" +
-                                           "5. DistroKid / Tunecore (Distribuce)\n\n" +
-                                           "To stojí tisíce korun měsíčně a vyžaduje exportování / míchání souborů přes hromadu různých webů. Pro běžného uživatele je to nemožné.",
-                                    color = Color(0xFFD1CFE2),
-                                    fontSize = 11.sp,
-                                    lineHeight = 15.sp
-                                )
-                                Spacer(modifier = Modifier.height(10.dp))
-                                Text("ŘEŠENÍ SPARK: Všechno na jedno kliknutí", color = AccentNeonCyan, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                                Spacer(modifier = Modifier.height(4.dp))
-                                Text(
-                                    text = "Vše tvoříte v jednom studiu, synchronizovaně. Zvuk sedí na video střihy, text je generován do rytmu. Aplikace šetří 80 % nákladů a 90 % času.",
-                                    color = Color.White,
-                                    fontSize = 11.sp,
-                                    lineHeight = 15.sp
-                                )
-                            }
-                            2 -> {
-                                Text("FINANČNÍ SIMULÁTOR (ROČNÍ PŘÍJMY - SaaS)", color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold)
-                                Spacer(modifier = Modifier.height(4.dp))
-                                Text(
-                                    text = "Upravte parametry předplatitelů a ceny pro vizualizaci návratnosti této investice:",
-                                    color = Color.Gray,
-                                    fontSize = 10.sp
-                                )
-
-                                Spacer(modifier = Modifier.height(12.dp))
-
-                                // Users slider
-                                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                    Text("Platící uživatelé měsíčně:", color = Color.White, fontSize = 10.sp)
-                                    Text("${estimateUsers.toInt()} tvůrců", color = AccentNeonCyan, fontSize = 10.sp, fontWeight = FontWeight.Bold)
-                                }
-                                Slider(
-                                    value = estimateUsers,
-                                    onValueChange = { estimateUsers = it },
-                                    valueRange = 100f..10000f,
-                                    colors = SliderDefaults.colors(thumbColor = AccentNeonCyan, activeTrackColor = AccentNeonCyan)
-                                )
-
-                                Spacer(modifier = Modifier.height(8.dp))
-
-                                // Price slider
-                                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                    Text("Měsíční SaaS předplatné:", color = Color.White, fontSize = 10.sp)
-                                    Text("${estimatePrice.toInt()} Kč ($${(estimatePrice / 24).toInt()})", color = AccentNeonCyan, fontSize = 10.sp, fontWeight = FontWeight.Bold)
-                                }
-                                Slider(
-                                    value = estimatePrice,
-                                    onValueChange = { estimatePrice = it },
-                                    valueRange = 49f..490f,
-                                    colors = SliderDefaults.colors(thumbColor = AccentNeonCyan, activeTrackColor = AccentNeonCyan)
-                                )
-
-                                Spacer(modifier = Modifier.height(14.dp))
-
-                                // Calculations
-                                val monthlyRev = (estimateUsers.toInt() * estimatePrice.toInt())
-                                val yearlyRev = monthlyRev * 12
-
-                                Box(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .background(Color(0xFF1E133F), RoundedCornerShape(8.dp))
-                                        .padding(12.dp)
-                                ) {
-                                    Column {
-                                        Text("📊 PŘEDPOKLÁDANÝ FINANČNÍ VÝSLEDEK:", color = AccentNeonCyan, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                                        Spacer(modifier = Modifier.height(6.dp))
-                                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                            Text("Měsíční obrat (Monthly Recurring Revenue):", color = Color.White, fontSize = 9.sp)
-                                            Text("${String.format("%,d", monthlyRev)} Kč", color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Bold)
-                                        }
-                                        Spacer(modifier = Modifier.height(4.dp))
-                                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                            Text("Roční obrat (Annual Run Rate):", color = AccentNeonCyan, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                                            Text("${String.format("%,d", yearlyRev)} Kč 🎉", color = AccentNeonCyan, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                                        }
-                                        Spacer(modifier = Modifier.height(4.dp))
-                                        Text("*Výpočty počítají s konzervativním konverzním poměrem 1.8% z celkového počtu stažení zdarma.", color = Color.Gray, fontSize = 8.sp)
-                                    }
-                                }
-                            }
-                            3 -> {
-                                if (pitchSubmitted) {
-                                    Box(
-                                        modifier = Modifier.fillMaxWidth().padding(10.dp),
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                            Text("📬 ROZHOVOR ZAHÁJEN!", color = AccentNeonCyan, fontSize = 14.sp, fontWeight = FontWeight.Bold)
-                                            Spacer(modifier = Modifier.height(6.dp))
-                                            Text(
-                                                text = "Váš zájem a pitch-outline byly úspěšně odeslány do inkubátoru Google AI Ventures & technickým partnerům.\n\nGratulujeme k velkému prvnímu kroku k realizaci snu!",
-                                                color = Color.White,
-                                                fontSize = 11.sp,
-                                                textAlign = TextAlign.Center
-                                            )
-                                        }
-                                    }
-                                } else {
-                                    Text("NAVÁZAT SPOLUPRÁCI NEBO PŘEDLOŽIT FINANCOVÁNÍ", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                                    Spacer(modifier = Modifier.height(4.dp))
-                                    Text("Máte-li zájem o tento nápad, napište nám a vytvořme společně novou éru tvůrčího světa.", color = Color.Gray, fontSize = 10.sp)
-
-                                    Spacer(modifier = Modifier.height(10.dp))
-
-                                    OutlinedTextField(
-                                        value = senderName,
-                                        onValueChange = { senderName = it },
-                                        placeholder = { Text("Vaše jméno / Název partnerské firmy", fontSize = 11.sp, color = Color.Gray) },
-                                        colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = AccentNeonCyan, focusedTextColor = Color.White, unfocusedTextColor = Color.White),
-                                        singleLine = true,
-                                        modifier = Modifier.fillMaxWidth()
-                                    )
-
-                                    Spacer(modifier = Modifier.height(6.dp))
-
-                                    OutlinedTextField(
-                                        value = senderContact,
-                                        onValueChange = { senderContact = it },
-                                        placeholder = { Text("E-mail / Telefonní číslo", fontSize = 11.sp, color = Color.Gray) },
-                                        colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = AccentNeonCyan, focusedTextColor = Color.White, unfocusedTextColor = Color.White),
-                                        singleLine = true,
-                                        modifier = Modifier.fillMaxWidth()
-                                    )
-
-                                    Spacer(modifier = Modifier.height(6.dp))
-
-                                    OutlinedTextField(
-                                        value = senderMessage,
-                                        onValueChange = { senderMessage = it },
-                                        placeholder = { Text("Vaše zpráva pro vývojáře...", fontSize = 11.sp, color = Color.Gray) },
-                                        colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = AccentNeonCyan, focusedTextColor = Color.White, unfocusedTextColor = Color.White),
-                                        maxLines = 3,
-                                        modifier = Modifier.fillMaxWidth()
-                                    )
-
-                                    Spacer(modifier = Modifier.height(10.dp))
-
-                                    Button(
-                                        onClick = { pitchSubmitted = true },
-                                        colors = ButtonDefaults.buttonColors(containerColor = AccentNeonCyan, contentColor = Color.Black),
-                                        modifier = Modifier.fillMaxWidth()
-                                    ) {
-                                        Text("ODESLAT NÁVRH PARTNERSTVÍ 🚀", fontWeight = FontWeight.Bold, fontSize = 11.sp)
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        isPitchDeckOpen = false
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = AccentNeonCyan, contentColor = Color.Black)
-                ) {
-                    Text("Rozumím", fontWeight = FontWeight.Bold)
                 }
             }
         )
@@ -5963,6 +5640,92 @@ fun LegalAndProfileTab(
                     ) {
                         Text(TranslationUtility.get("total_projects"), color = Color.Gray, fontSize = 13.sp)
                         Text("${allProjects.size}", color = AccentNeonCyan, fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+        }
+
+        item {
+            var apiKeyInput by remember { mutableStateOf(com.example.data.network.GeminiClient.customApiKey) }
+            var isSavedSuccessfully by remember { mutableStateOf(false) }
+
+            Card(
+                colors = CardDefaults.cardColors(containerColor = CardBackground),
+                border = BorderStroke(1.dp, Color(0xFF2E1A5E)),
+                shape = RoundedCornerShape(16.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "INTEGRACE GEMINI API ⚡",
+                            fontWeight = FontWeight.Bold,
+                            color = AccentNeonCyan,
+                            fontSize = 12.sp
+                        )
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(4.dp))
+                                .background(if (com.example.data.network.GeminiClient.customApiKey.isNotBlank()) AccentNeonCyan else Color(0xFF2E2055))
+                                .padding(horizontal = 6.dp, vertical = 2.dp)
+                        ) {
+                            Text(
+                                text = if (com.example.data.network.GeminiClient.customApiKey.isNotBlank()) "AKTIVNÍ KEY" else "OFFLINE FALLBACK",
+                                color = if (com.example.data.network.GeminiClient.customApiKey.isNotBlank()) Color.Black else Color.LightGray,
+                                fontSize = 9.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = "Vložte sem svůj tajný Gemini API klíč pro okamžité generování textů, analýzu hudby a vizuálů přímo přes servery Google AI v reálném čase. Bez klíče aplikace automaticky běží v kreativním offline režimu.",
+                        color = Color.LightGray,
+                        fontSize = 11.sp,
+                        lineHeight = 15.sp
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    OutlinedTextField(
+                        value = apiKeyInput,
+                        onValueChange = { 
+                            apiKeyInput = it
+                            isSavedSuccessfully = false
+                        },
+                        placeholder = { Text("AIzaSy...", color = Color.Gray, fontSize = 12.sp) },
+                        singleLine = true,
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedTextColor = Color.White,
+                            unfocusedTextColor = Color.White,
+                            focusedBorderColor = AccentNeonCyan,
+                            unfocusedBorderColor = Color(0xFF251A4D)
+                        ),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    Button(
+                        onClick = {
+                            val p = context.getSharedPreferences("spark_settings", android.content.Context.MODE_PRIVATE)
+                            p.edit().putString("gemini_key", apiKeyInput.trim()).apply()
+                            com.example.data.network.GeminiClient.customApiKey = apiKeyInput.trim()
+                            isSavedSuccessfully = true
+                            Toast.makeText(context, "Klíč byl úspěšně uložen k vám do paměti zařízení! 🎉", Toast.LENGTH_SHORT).show()
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = if (isSavedSuccessfully) Color(0xFF00C750) else AccentNeonCyan),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(
+                            text = if (isSavedSuccessfully) "KLÍČ ULOŽEN V POŘÁDKU! ✅" else "ULOŽIT GEMINI KLÍČ DO TELEFONU 💾",
+                            color = Color.Black,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 11.sp
+                        )
                     }
                 }
             }

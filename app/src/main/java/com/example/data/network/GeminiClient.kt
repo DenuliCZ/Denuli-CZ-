@@ -76,7 +76,13 @@ object GeminiClient {
             .create(GeminiApiService::class.java)
     }
 
+    // Support custom runtime API key saved in SharedPreferences or entered by the user
+    var customApiKey: String = ""
+
     private fun getApiKey(): String {
+        if (customApiKey.isNotBlank()) {
+            return customApiKey.trim()
+        }
         return BuildConfig.GEMINI_API_KEY
     }
 

@@ -6,6 +6,13 @@ plugins {
     alias(libs.plugins.secrets)
 }
 
+// Automatically sync Google AI Studio Secrets (Tajemství) with .env file during gradle config
+val envGeminiKey = System.getenv("GEMINI_API_KEY")
+if (!envGeminiKey.isNullOrEmpty()) {
+    val envFile = file("${rootDir}/.env")
+    envFile.writeText("GEMINI_API_KEY=$envGeminiKey\n")
+}
+
 android {
     namespace = "com.studiodenuli.spark"
     compileSdk = 35
@@ -14,8 +21,8 @@ android {
         applicationId = "com.studiodenuli.spark"
         minSdk = 26
         targetSdk = 35
-        versionCode = 41
-        versionName = "41.0"
+        versionCode = 42
+        versionName = "42.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
