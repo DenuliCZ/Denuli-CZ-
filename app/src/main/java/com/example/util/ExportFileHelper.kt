@@ -349,6 +349,11 @@ object ExportFileHelper {
         lyrics: String,
         durationSec: Int = 15,
         projectBpm: Int = 120,
+        promptStyle: String = "",
+        negativePrompt: String = "",
+        soundInfluencePercent: Float = 80f,
+        styleInfluencePercent: Float = 75f,
+        vocalVoice: String = "Human",
         onProgress: (Float) -> Unit
     ): File = withContext(Dispatchers.IO) {
         val cacheDir = context.cacheDir
@@ -383,6 +388,15 @@ object ExportFileHelper {
             val beatDurationSec = 60.0 / bpm
             val r = java.util.Random(System.currentTimeMillis())
 
+            // Sizing influences
+            val backingScale = (soundInfluencePercent / 100f).coerceIn(0f, 2f)
+            val effectIntensity = (styleInfluencePercent / 75f).coerceIn(0f, 2.5f)
+
+            // Initialize studio analog echo/delay line for vocaloid track
+            val delayBufferSize = (sampleRate * 0.30).toInt() // 300ms feedback delay
+            val delayBuffer = FloatArray(delayBufferSize) { 0f }
+            var delayIndex = 0
+
             for (i in 0 until numSamples) {
                 val t = i.toDouble() / sampleRate
                 var sampleVal = 0.0
@@ -397,51 +411,266 @@ object ExportFileHelper {
                     else -> 220.0
                 }
 
-                // A. Layer 1: Instrumental Harmony Chords (Pads/Keys)
-                val chordOsc1 = sin(2 * PI * chordBaseFreq * t)
-                val chordOsc2 = sin(2 * PI * (chordBaseFreq * 1.25) * t) // Minor/Major third
-                val chordOsc3 = sin(2 * PI * (chordBaseFreq * 1.5) * t) // Fifth
-                var chordsMix = (chordOsc1 + chordOsc2 + chordOsc3) / 3.0
-
-                // Genre specific adjustments
+                // A. Layer 1: Professional Instrumental Harmony Chords (Pads/Keys)
+                var chordsMix = 0.0
                 when (genre.lowercase()) {
-                    "rock", "metal" -> {
-                        chordsMix = sign(chordsMix) * (1.0 - exp(-2.5 * abs(chordsMix))) // Distortion
+                    "pop" -> {
+                        // Shimmering FM synth bell-keys (FM synthesis)
+                        val fMod = chordBaseFreq * 2.0
+                        val bell1 = sin(2 * PI * chordBaseFreq * t + (0.40 * effectIntensity) * sin(2 * PI * fMod * t))
+                        val bell2 = sin(2 * PI * (chordBaseFreq * 1.5) * t + (0.25 * effectIntensity) * sin(2 * PI * (fMod * 1.5) * t))
+                        chordsMix = (bell1 + bell2) * 0.5 * (0.6 + 0.4 * sin(2 * PI * 0.35 * t))
                     }
-                    "edm", "synthwave" -> {
-                        val sidechain = 0.2 + 0.8 * ((t % beatDurationSec) / beatDurationSec)
-                        chordsMix *= sidechain
+                    "rock" -> {
+                        // Gritty hand-crafted double-tracked electric guitar chords
+                        var saw = 0.0
+                        for (harm in 1..4) {
+                            saw += sin(2 * PI * (chordBaseFreq * harm) * t) / harm
+                        }
+                        // Tube-compress and soft-clip saturated drive based on style influence
+                        val driveVal = 1.8 * effectIntensity
+                        val drive = saw * driveVal
+                        chordsMix = sign(drive) * (1.0 - exp(-2.8 * abs(drive))) * 0.55
+                    }
+                    "edm" -> {
+                        // sidechained EDM Super-Saw with adjustable detune intensity
+                        var supersaw = 0.0
+                        val detuneSpread = 0.015 * effectIntensity
+                        for (detune in listOf(1.0 - detuneSpread, 1.0, 1.0 + detuneSpread)) {
+                            val phase = 2 * PI * chordBaseFreq * detune * t
+                            supersaw += ((phase % (2 * PI)) / PI) - 1.0
+                        }
+                        // Sidechain compression synchronized with EDM kick beat
+                        val beatRel = (t % beatDurationSec) / beatDurationSec
+                        val sidechain = 0.15 + 0.85 * (1.0 - exp(-15.0 * beatRel))
+                        chordsMix = (supersaw / 3.0) * sidechain * 0.65
+                    }
+                    "synthwave" -> {
+                        // Retro analog sweep sawtooth chords from the 80s
+                        var saw = 0.0
+                        val detuneSpread = 0.007 * effectIntensity
+                        for (detune in listOf(1.0 - detuneSpread, 1.0, 1.0 + detuneSpread)) {
+                            val phase = 2 * PI * chordBaseFreq * detune * t
+                            saw += ((phase % (2 * PI)) / PI) - 1.0
+                        }
+                        // Slow high-frequency lowpass sweeping
+                        val scaleSweep = 0.5 + 0.5 * sin(2 * PI * 0.25 * t)
+                        chordsMix = (saw / 3.0) * scaleSweep * 0.70
+                    }
+                    "lo-fi" -> {
+                        // Soft tape-warped vintage Rhodes electric piano with adjustable flutter
+                        val flutterSpeed = 4.8 * effectIntensity
+                        val flutter = 0.94 + 0.06 * sin(2 * PI * flutterSpeed * t)
+                        val key1 = sin(2 * PI * chordBaseFreq * t)
+                        val key2 = sin(2 * PI * (chordBaseFreq * 1.25) * t) * 0.3
+                        val key3 = sin(2 * PI * (chordBaseFreq * 1.5) * t) * 0.15
+                        chordsMix = (key1 + key2 + key3) * flutter * 0.55
+                    }
+                    "acoustic" -> {
+                        // Beautiful steel-string resonant acoustic guitar arpeggios
+                        val pluckTime = t % (beatDurationSec * 0.5)
+                        val pluckEnv = exp(-4.5 * pluckTime)
+                        val pluck1 = sin(2 * PI * chordBaseFreq * t) * pluckEnv
+                        val pluck2 = sin(2 * PI * (chordBaseFreq * 1.5) * t) * exp(-6.5 * pluckTime) * 0.45
+                        chordsMix = (pluck1 + pluck2) * 0.85
+                    }
+                    "metal" -> {
+                        // Extremely brutal scooped industrial buzz guitar
+                        var metalSaw = 0.0
+                        for (harm in 1..6) {
+                            metalSaw += sin(2 * PI * (chordBaseFreq * harm) * t) / harm
+                        }
+                        chordsMix = if (metalSaw >= 0.0) 0.52 else -0.52
                     }
                     else -> {
-                        chordsMix *= (0.7 + 0.3 * sin(2 * PI * 0.2 * t))
+                        // Soft soothing ambient pad
+                        val chordOsc1 = sin(2 * PI * chordBaseFreq * t)
+                        val chordOsc2 = sin(2 * PI * (chordBaseFreq * 1.25) * t)
+                        val chordOsc3 = sin(2 * PI * (chordBaseFreq * 1.5) * t)
+                        chordsMix = ((chordOsc1 + chordOsc2 + chordOsc3) / 3.0) * (0.7 + 0.3 * sin(2 * PI * 0.2 * t))
                     }
                 }
-                sampleVal += chordsMix * 0.25
+                sampleVal += chordsMix * 0.28 * backingScale
 
-                // B. Layer 2: Bassline (Deep driving pulse sub-bass)
+                // B. Layer 2: Custom Genre-tailored Basslines
+                var bassLine = 0.0
                 val bassFreq = chordBaseFreq * 0.5
-                val bassEnv = 0.6 + 0.4 * sin(2 * PI * (bpm / 60.0) * t)
-                val bassOsc = sin(2 * PI * bassFreq * t)
-                sampleVal += bassOsc * bassEnv * 0.20
+                when (genre.lowercase()) {
+                    "synthwave", "edm" -> {
+                        // Pumping 8th note sequenced bass
+                        val stepIndex = (t / (beatDurationSec / 2.0)).toInt() % 4
+                        val octaveMult = if (stepIndex % 2 == 1) 2.0 else 1.0
+                        val bassOsc = sin(2 * PI * (bassFreq * octaveMult) * t)
+                        val bassTime = t % (beatDurationSec / 2.0)
+                        val bassEnv = exp(-9.0 * bassTime)
+                        bassLine = bassOsc * bassEnv * 0.34
+                    }
+                    "rock", "metal" -> {
+                        // Saturated growling picked bass guitar
+                        val subBass = sin(2 * PI * bassFreq * t)
+                        val growl = subBass + 0.32 * sin(2 * PI * (bassFreq * 3.0) * t)
+                        bassLine = growl * 0.25
+                    }
+                    "lo-fi", "hiphop" -> {
+                        // Deep melting tape-sub bass
+                        val smoothSub = sin(2 * PI * bassFreq * t)
+                        val subLfo = 0.8 + 0.2 * sin(2 * PI * 0.85 * t)
+                        bassLine = smoothSub * subLfo * 0.28
+                    }
+                    "pop" -> {
+                        // Bouncy slap bass sequence
+                        val popStep = (t / (beatDurationSec / 2.0)).toInt() % 8
+                        val hasPluck = popStep in listOf(0, 2, 3, 5, 6)
+                        val popBassEnv = if (hasPluck) exp(-11.0 * (t % (beatDurationSec / 2.0))) else 0.0
+                        bassLine = sin(2 * PI * bassFreq * t) * popBassEnv * 0.26
+                    }
+                    "acoustic" -> {
+                        // Tactile acoustic double-bass
+                        val aTime = t % beatDurationSec
+                        val acousticBassEnv = exp(-4.0 * aTime)
+                        bassLine = sin(2 * PI * bassFreq * t) * acousticBassEnv * 0.24
+                    }
+                    else -> {
+                        // Sincere deep warm bass waves
+                        val softBass = sin(2 * PI * bassFreq * t)
+                        val softEnv = 0.6 + 0.4 * sin(2 * PI * (bpm / 60.0) * t)
+                        bassLine = softBass * softEnv * 0.20
+                    }
+                }
+                sampleVal += bassLine * backingScale
 
-                // C. Layer 3: Rhythmic Drums Beat (Kick & Snare)
+                // C. Layer 3: Dynamic Genre-Specific Drum Machines
                 val beatTime = t % beatDurationSec
                 val totalBeats = (t / beatDurationSec).toInt()
-                
-                // Kick drum pulse on every beat (4-on-the-floor)
-                val kickEnv = exp(-35.0 * beatTime)
-                val kickOsc = sin(2 * PI * 60.0 * exp(-15.0 * beatTime) * beatTime)
-                sampleVal += kickOsc * kickEnv * 0.35
+                val beatInBar = totalBeats % 4
+                var drumMix = 0.0
 
-                // Snare drum on beats 2 and 4
-                if (totalBeats % 2 == 1) {
-                    val snareEnv = exp(-15.0 * beatTime)
-                    val snareNoise = r.nextGaussian() * snareEnv * 0.15
-                    sampleVal += snareNoise
+                when (genre.lowercase()) {
+                    "pop" -> {
+                        // Crisp punchy urban pop layout
+                        // Kick on beat 1 and 3
+                        if (beatInBar == 0 || beatInBar == 2) {
+                            val kickEnv = exp(-28.0 * beatTime)
+                            val kickOsc = sin(2 * PI * 58.0 * exp(-13.0 * beatTime) * beatTime)
+                            drumMix += kickOsc * kickEnv * 0.38
+                        }
+                        // Snap/snare handclap on beat 2 and 4
+                        if (beatInBar == 1 || beatInBar == 3) {
+                            val snareEnv = exp(-18.0 * beatTime)
+                            drumMix += r.nextGaussian() * snareEnv * 0.18
+                        }
+                        // Continuous high-pitch hi-hat ticks on every eighth-step
+                        val subEight = t % (beatDurationSec / 2.0)
+                        drumMix += r.nextGaussian() * exp(-55.0 * subEight) * 0.04
+                    }
+                    "rock" -> {
+                        // Power double-head acoustic rock kit
+                        // Kick on beat 1, 3 and offbeat of 3
+                        val isKickTime = (beatInBar == 0 || beatInBar == 2 || (beatInBar == 3 && beatTime > beatDurationSec * 0.5))
+                        if (isKickTime) {
+                            val kt = if (beatInBar == 3 && beatTime > beatDurationSec * 0.5) beatTime - beatDurationSec * 0.5 else beatTime
+                            val kickEnv = exp(-23.0 * kt)
+                            val kickOsc = sin(2 * PI * 66.0 * exp(-10.0 * kt) * kt)
+                            drumMix += kickOsc * kickEnv * 0.40
+                        }
+                        // Massive high-stick snare on 2 and 4
+                        if (beatInBar == 1 || beatInBar == 3) {
+                            val snareEnv = exp(-13.0 * beatTime)
+                            drumMix += r.nextGaussian() * snareEnv * 0.21
+                        }
+                        // Closed hi-hats sizzling on 8th steps
+                        drumMix += r.nextGaussian() * exp(-42.0 * (t % (beatDurationSec / 2.0))) * 0.05
+                        // Splash crash crash-cymbal on bar lines
+                        if (totalBeats % 16 == 0) {
+                            drumMix += r.nextGaussian() * exp(-2.2 * beatTime) * 0.15
+                        }
+                    }
+                    "edm" -> {
+                        // Heavy, chest-pumping electronic club layout
+                        // Gigantic club sub-kick on every single beat!
+                        val kickEnv = exp(-35.0 * beatTime)
+                        val kickOsc = sin(2 * PI * 60.0 * exp(-17.0 * beatTime) * beatTime)
+                        drumMix += kickOsc * kickEnv * 0.46
+                        // Stereo electronic white-noise clap on 2 and 4
+                        if (beatInBar == 1 || beatInBar == 3) {
+                            val clapEnv = exp(-15.0 * beatTime)
+                            drumMix += r.nextGaussian() * clapEnv * 0.21
+                        }
+                        // Sharp sizzling open hi-hat ticking on the offbeats
+                        val isOffbeat = beatTime > beatDurationSec * 0.45 && beatTime < beatDurationSec * 0.75
+                        if (isOffbeat) {
+                            val hatEnv = exp(-24.0 * (beatTime - beatDurationSec * 0.5))
+                            drumMix += r.nextGaussian() * hatEnv * 0.075
+                        }
+                    }
+                    "synthwave" -> {
+                        // Warm retro LinnDrum style layout
+                        // Retro four-on-the-floor kick
+                        val kickEnv = exp(-32.0 * beatTime)
+                        val kickOsc = sin(2 * PI * 55.0 * exp(-14.0 * beatTime) * beatTime)
+                        drumMix += kickOsc * kickEnv * 0.42
+                        // Gated 80s reverb snare on 2 and 4
+                        if (beatInBar == 1 || beatInBar == 3) {
+                            val snareEnv = exp(-8.5 * beatTime) // Extended wet decay
+                            drumMix += r.nextGaussian() * snareEnv * 0.19
+                        }
+                        // 8th note rolling retro hi-hats
+                        drumMix += r.nextGaussian() * exp(-38.0 * (t % (beatDurationSec / 2.0))) * 0.05
+                    }
+                    "lo-fi" -> {
+                        // Cozy retro tape-record environment noise
+                        val dustNoise = 0.026 * effectIntensity
+                        sampleVal += r.nextGaussian() * dustNoise
+                        // Lazy, unquantized dusty swing boom-bap kick
+                        val swingOffset = beatDurationSec * 0.07
+                        val isLofiKick = (beatInBar == 0 && beatTime < beatDurationSec * 0.5) ||
+                                (beatInBar == 2 && beatTime > swingOffset && beatTime < swingOffset + 0.3)
+                        if (isLofiKick) {
+                            val kt = if (beatInBar == 2) beatTime - swingOffset else beatTime
+                            val kickEnv = exp(-19.0 * kt)
+                            val kickOsc = sin(2 * PI * 49.0 * exp(-9.0 * kt) * kt)
+                            drumMix += kickOsc * kickEnv * 0.33
+                        }
+                        // Crisp wooden rimshot / lazy handclap on beat 2 and 4
+                        if (beatInBar == 1 || beatInBar == 3) {
+                            val snareEnv = exp(-21.0 * beatTime)
+                            drumMix += r.nextGaussian() * snareEnv * 0.12
+                        }
+                        // Gentle swing shaker
+                        drumMix += r.nextGaussian() * exp(-34.0 * (t % (beatDurationSec / 2.0))) * 0.03
+                    }
+                    "acoustic" -> {
+                        // Intimate wooden acoustic cajon and handheld shaker (No digital beeps!)
+                        // Decayed wooden cajon "thump" on beat 1 and 3
+                        if (beatInBar == 0 || beatInBar == 2) {
+                            val kickEnv = exp(-17.0 * beatTime)
+                            val kickOsc = sin(2 * PI * 68.0 * exp(-11.0 * beatTime) * beatTime)
+                            drumMix += kickOsc * kickEnv * 0.28
+                        }
+                        // Soft cajon edge-slap / acoustic brush tap on beat 2 and 4
+                        if (beatInBar == 1 || beatInBar == 3) {
+                            val brushEnv = exp(-28.0 * beatTime)
+                            drumMix += r.nextGaussian() * brushEnv * 0.08
+                        }
+                        // Shimmering handheld shaker on 8th steps
+                        drumMix += r.nextGaussian() * exp(-38.0 * (t % (beatDurationSec / 2.0))) * 0.03
+                    }
+                    else -> {
+                        // Default energetic pop layout
+                        if (totalBeats % 2 == 0) {
+                            val kickEnv = exp(-35.0 * beatTime)
+                            val kickOsc = sin(2 * PI * 55.0 * exp(-15.0 * beatTime) * beatTime)
+                            drumMix += kickOsc * kickEnv * 0.36
+                        }
+                        if (totalBeats % 2 == 1) {
+                            val snareEnv = exp(-18.0 * beatTime)
+                            drumMix += r.nextGaussian() * snareEnv * 0.15
+                        }
+                    }
                 }
+                sampleVal += drumMix * backingScale
 
-                // D. Layer 4: Vocaloid lead singing melody! (Expressive vocals)
-                // Distinct notes depending on beat structure
+                // D. Layer 4: High-Fidelity Vocal synthesis (with adjustable style parameters and pitch styles)
                 val vocalBeatIndex = (t / (beatDurationSec * 1.5)).toInt()
                 val vocalBaseFreq = when (barIndex) {
                     0 -> when (vocalBeatIndex % 4) {
@@ -475,7 +704,7 @@ object ExportFileHelper {
                     else -> 440.0
                 }
 
-                // Portamento pitch glide
+                // Portamento smooth slide
                 val glideTime = t % (beatDurationSec * 1.5)
                 val prevVocalFreq = when (barIndex) {
                     0 -> 392.0
@@ -484,23 +713,89 @@ object ExportFileHelper {
                     3 -> 392.0
                     else -> 440.0
                 }
-                val currentVocalFreq = prevVocalFreq + (vocalBaseFreq - prevVocalFreq) * (1.0 - exp(-15.0 * glideTime))
+                
+                // Determine pitch attributes depending on voice style
+                val autotuned = vocalVoice.lowercase() == "robot" || vocalVoice.lowercase() == "vocoder"
+                val currentVocalFreq = if (autotuned) {
+                    // Robot autotuned has no glide (instant pitch changes)
+                    vocalBaseFreq
+                } else {
+                    prevVocalFreq + (vocalBaseFreq - prevVocalFreq) * (1.0 - exp(-15.0 * glideTime))
+                }
 
-                // Vocal vibrato rate
-                val vibrato = 1.0 + 0.015 * sin(2 * PI * 6.0 * t)
-                val vocalOsc = sin(2 * PI * (currentVocalFreq * vibrato) * t)
+                // Pitch vibrato
+                val vibratoSwell = if (autotuned) 0.0 else 1.0 - exp(-3.0 * glideTime)
+                val vibratoRate = 6.2
+                val vibratoDepth = if (vocalVoice.lowercase() == "human") 0.019 else 0.013
+                val vibrato = 1.0 + vibratoDepth * vibratoSwell * sin(2 * PI * vibratoRate * t)
 
-                // Resonant Forman Sweep ('ah' - 'oh' - 'eeh' formants)
-                val vowelPos = 0.5 + 0.5 * sin(2 * PI * 2.0 * t)
-                val formantFilter = vocalOsc * (0.6 + 0.4 * sin(2 * PI * (800.0 + vowelPos * 1000.0) * t))
+                // 1. Generate core vocal glottal pulse 
+                val vocalPhase = (currentVocalFreq * vibrato) * t
+                val vp = vocalPhase % 1.0
+                val glottalPulse = if (vp < 0.28) {
+                    vp / 0.28
+                } else if (vp < 0.78) {
+                    (0.78 - vp) / 0.50
+                } else {
+                    0.0
+                } - 0.50
 
-                // Gated lyrics articulation
+                // 2. Formant filtering (modeling human vowel cavities)
+                val vowelCycle = (t * 2.5).toInt() % 5
+                val (formantF1, formantF2) = when (vowelCycle) {
+                    0 -> Pair(730.0, 1090.0) // "Ah"
+                    1 -> Pair(530.0, 1840.0) // "Eh"
+                    2 -> Pair(270.0, 2290.0) // "Ee"
+                    3 -> Pair(570.0, 840.0)  // "Oh"
+                    4 -> Pair(300.0, 870.0)  // "Oo"
+                    else -> Pair(500.0, 1000.0)
+                }
+
+                val formantTone1 = sin(2 * PI * formantF1 * t)
+                val formantTone2 = sin(2 * PI * formantF2 * t)
+                var vocalFiltered = glottalPulse * 0.35 + (formantTone1 * 0.42 + formantTone2 * 0.32) * abs(glottalPulse)
+
+                // Give it advanced robot/vocoder ring modulation feel if enabled
+                if (vocalVoice.lowercase() == "robot" || vocalVoice.lowercase() == "vocoder") {
+                    val modOsc = sin(2 * PI * 85.0 * t)
+                    vocalFiltered = (vocalFiltered * 0.40 + (vocalFiltered * modOsc) * 0.60) * 1.2
+                }
+
+                // Gate articulate between words
                 val vocalGate = if (glideTime > (beatDurationSec * 1.35)) 0.0 else 1.0
-                val vocalsMix = formantFilter * vocalGate * 0.38
+                var originalVocalSample = vocalFiltered * vocalGate * 0.44
+
+                // If "Duet" is selected, double tap with a rich harmony singer (a third higher/lower harmonizing)
+                if (vocalVoice.lowercase() == "duet") {
+                    val harmonizeFreq = currentVocalFreq * 1.25 // Major third harmony!
+                    val vpHarm = (harmonizeFreq * vibrato) * t % 1.0
+                    val glottalPulseHarm = if (vpHarm < 0.28) {
+                        vpHarm / 0.28
+                    } else if (vpHarm < 0.78) {
+                        (0.78 - vpHarm) / 0.50
+                    } else {
+                        0.0
+                    } - 0.50
+                    val formantHarmTone1 = sin(2 * PI * formantF1 * 1.25 * t)
+                    val formantHarmTone2 = sin(2 * PI * formantF2 * 1.25 * t)
+                    val vocalFilteredHarm = glottalPulseHarm * 0.35 + (formantHarmTone1 * 0.42 + formantHarmTone2 * 0.32) * abs(glottalPulseHarm)
+                    val originalVocalSampleHarm = vocalFilteredHarm * vocalGate * 0.32 // slightly softer harmony level
+                    
+                    originalVocalSample = originalVocalSample * 0.85 + originalVocalSampleHarm
+                }
+
+                // 3. Studio Delay (Echo) Line synthesis
+                val delayedVocal = delayBuffer[delayIndex]
+                val delayFeedback = 0.44f * (styleInfluencePercent / 75f).coerceIn(0f, 0.85f)
+                delayBuffer[delayIndex] = (originalVocalSample + delayedVocal * delayFeedback).toFloat()
+                delayIndex = (delayIndex + 1) % delayBufferSize
+
+                // Master Vocals Mix (Raw singer + studio echo delay)
+                val vocalsMix = originalVocalSample + delayedVocal * 0.33
                 sampleVal += vocalsMix
 
-                // E. Master Mix, clipping avoidance compression
-                var finalSample = sampleVal * 0.70
+                // E. Master dynamic compressor & clipping safeguard
+                var finalSample = sampleVal * 0.65
                 if (finalSample > 1.0) finalSample = 1.0
                 if (finalSample < -1.0) finalSample = -1.0
 

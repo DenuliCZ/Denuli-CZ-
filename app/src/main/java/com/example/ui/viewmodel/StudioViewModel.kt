@@ -668,7 +668,17 @@ class StudioViewModel(private val repository: StudioRepository) : ViewModel() {
         }
     }
 
-    fun generateCompleteSong(context: Context, topic: String, selectedGenre: String) {
+    fun generateCompleteSong(
+        context: Context, 
+        topic: String, 
+        selectedGenre: String,
+        promptStyle: String = "",
+        negativePrompt: String = "",
+        soundInfluencePercent: Float = 80f,
+        styleInfluencePercent: Float = 75f,
+        vocalVoice: String = "Human",
+        customLyrics: String = ""
+    ) {
         val current = _activeProject.value ?: return
         stopAudioPlayback()
 
@@ -678,9 +688,13 @@ class StudioViewModel(private val repository: StudioRepository) : ViewModel() {
             try {
                 _completeSongProgress.value = 0.12f
                 
-                // 1. Generate lyrics concept via Gemini
-                val topicPrompt = if (topic.isNotBlank()) topic else "letní láska a naděje"
-                val responseLyrics = GeminiClient.generateSongLyrics(topicPrompt, selectedGenre)
+                // 1. Generate lyrics concept via Gemini or use custom lyrics directly
+                val responseLyrics = if (customLyrics.isNotBlank()) {
+                    customLyrics
+                } else {
+                    val topicPrompt = if (topic.isNotBlank()) topic else "letní láska a naděje"
+                    GeminiClient.generateSongLyrics(topicPrompt, selectedGenre)
+                }
                 _completeSongProgress.value = 0.35f
                 
                 // 2. Synthesize finished WAV track with vocaloids and beat instruments!
@@ -690,6 +704,11 @@ class StudioViewModel(private val repository: StudioRepository) : ViewModel() {
                     lyrics = responseLyrics,
                     durationSec = current.trackDuration,
                     projectBpm = current.bpm,
+                    promptStyle = promptStyle,
+                    negativePrompt = negativePrompt,
+                    soundInfluencePercent = soundInfluencePercent,
+                    styleInfluencePercent = styleInfluencePercent,
+                    vocalVoice = vocalVoice,
                     onProgress = { progress ->
                         _completeSongProgress.value = 0.35f + (0.55f * progress)
                     }
@@ -1553,7 +1572,14 @@ class StudioViewModel(private val repository: StudioRepository) : ViewModel() {
         }
     }
 
-    fun generateAIVideoClipFromSong(context: android.content.Context) {
+    fun generateAIVideoClipFromSong(
+        context: android.content.Context,
+        videoEngine: String = "Spark AI Cinematics",
+        aspectRatio: String = "9:16",
+        motionIntensity: Float = 50f,
+        visualStyle: String = "Hyper-Realistic CGI",
+        customVideoPrompt: String = ""
+    ) {
         val current = _activeProject.value ?: return
         viewModelScope.launch {
             _isGeneratingAIVideoTimeline.value = true
@@ -1562,15 +1588,20 @@ class StudioViewModel(private val repository: StudioRepository) : ViewModel() {
                 val songGenre = current.genre.ifBlank { "Pop" }
                 val songLyrics = current.lyrics.ifBlank { "Letní dobrodružství plná slunce." }
                 
-                val queryPrompt = "Vytvoř filmový scénář pro videoklip o 4 scénách pro píseň v žánru $songGenre s textem: '$songLyrics'. Každá scéna musí mít název, náladu (zvol jednu z najatých: 'Neon Cyberpunk', 'Cosmic Space', 'Retro Horizon', 'Deep Abyss', 'Zen Garden', 'Golden Warmth') a stručný textový titulek."
+                val visualContext = if (customVideoPrompt.isNotBlank()) "Uživatelský prompt scény: '$customVideoPrompt'. " else ""
+                val queryPrompt = "Vytvoř filmový scénář pro videoklip o 4 scénách pro píseň v žánru $songGenre s textem: '$songLyrics'. " +
+                        visualContext +
+                        "Aplikuj vizuální styl: '$visualStyle' s intenzitou pohybu scény ${motionIntensity.toInt()}%. " +
+                        "Navrženo pro video model: '$videoEngine' s poměrem stran '$aspectRatio'. " +
+                        "Každá scéna musí mít název, náladu (zvol jednu z najatých: 'Neon Cyberpunk', 'Cosmic Space', 'Retro Horizon', 'Deep Abyss', 'Zen Garden', 'Golden Warmth') a stručný textový popis."
                 
                 val answer = try {
                     GeminiClient.generateText(
                         queryPrompt,
-                        "Jsi kreativní filmový režisér. Výstup napiš česky jako jednoduchý přehled scén."
-                    ).take(400)
+                        "Jsi kreativní filmový režisér. Výstup napiš česky jako jednoduchý přehled 4 scén."
+                    ).take(500)
                 } catch (e: Exception) {
-                    "Simulované filmové scény pro žánr $songGenre"
+                    "Simulované filmové scény pro žánr $songGenre s visual stylem $visualStyle"
                 }
                 
                 val generatedClips = mutableListOf<com.example.util.TimelineClipData>()
@@ -1582,10 +1613,17 @@ class StudioViewModel(private val repository: StudioRepository) : ViewModel() {
                     else -> listOf("Golden Warmth", "Zen Garden", "Retro Horizon", "Golden Warmth")
                 }
                 
-                generatedClips.add(com.example.util.TimelineClipData("clip_1", "Intro - Vstup do vesmíru", moods[0], 4, "Scéna 1: Probuzení atmosféry ($songGenre)"))
-                generatedClips.add(com.example.util.TimelineClipData("clip_2", "Sloka - Rozvoj tónů", moods[1], 4, "Scéna 2: Hluboká cesta tónů"))
-                generatedClips.add(com.example.util.TimelineClipData("clip_3", "Refrén - Výbuch zvukové fantazie", moods[2], 4, "Scéna 3: Rezonanční exploze"))
-                generatedClips.add(com.example.util.TimelineClipData("clip_4", "Outro - Poslední stmívání", moods[3], 3, "Scéna 4: Nekonečné ticho"))
+                // Parse or extract scene titles/descriptions if possible, else generate beautifully styled
+                val lines = answer.split("\n").filter { it.isNotBlank() && (it.contains("Scéna") || it.contains(":") || it.contains("-")) }
+                val scene1Text = lines.getOrNull(0)?.replace("\"", "")?.take(70) ?: "Scéna 1: Úvodní intro zrození zvuku"
+                val scene2Text = lines.getOrNull(1)?.replace("\"", "")?.take(70) ?: "Scéna 2: Vývoj hudebních a vizuálních kontur"
+                val scene3Text = lines.getOrNull(2)?.replace("\"", "")?.take(70) ?: "Scéna 3: Rezonanční exploze emocí"
+                val scene4Text = lines.getOrNull(3)?.replace("\"", "")?.take(70) ?: "Scéna 4: Postupné zhasínání kontur"
+
+                generatedClips.add(com.example.util.TimelineClipData("clip_1", "Intro ($visualStyle)", moods[0], 4, "$scene1Text [Model: $videoEngine]"))
+                generatedClips.add(com.example.util.TimelineClipData("clip_2", "Sloka ($aspectRatio)", moods[1], 4, "$scene2Text [Motion: ${motionIntensity.toInt()}%]"))
+                generatedClips.add(com.example.util.TimelineClipData("clip_3", "Refrén (Climax)", moods[2], 4, scene3Text))
+                generatedClips.add(com.example.util.TimelineClipData("clip_4", "Konec (Outro)", moods[3], 3, scene4Text))
                 
                 _timelineClips.value = generatedClips
                 saveTimeline(context, current.id)
@@ -1602,7 +1640,7 @@ class StudioViewModel(private val repository: StudioRepository) : ViewModel() {
                 generateTimelineMP4Video(context)
                 
                 withContext(Dispatchers.Main) {
-                    Toast.makeText(context, "AI Filmový scénář byl sestaven na osu a rendering zahájen! 🎬📺", Toast.LENGTH_LONG).show()
+                    Toast.makeText(context, "AI film v kvalitě $aspectRatio úspěšně renderován přes model $videoEngine! 🎬📺", Toast.LENGTH_LONG).show()
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to compile AI video clip: ${e.message}")

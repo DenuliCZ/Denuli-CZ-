@@ -582,6 +582,7 @@ fun GuideTab(
 ) {
     val context = LocalContext.current
     var isNewProjectDialogShown by remember { mutableStateOf(false) }
+    var isPitchDeckOpen by remember { mutableStateOf(false) }
 
     LazyColumn(
         modifier = Modifier
@@ -589,6 +590,47 @@ fun GuideTab(
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
+        item {
+            Card(
+                colors = CardDefaults.cardColors(containerColor = Color(0xFF1E0A44)),
+                shape = RoundedCornerShape(18.dp),
+                border = BorderStroke(1.5.dp, AccentNeonCyan),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { isPitchDeckOpen = true }
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(18.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(4.dp))
+                                    .background(AccentNeonCyan)
+                                    .padding(horizontal = 6.dp, vertical = 2.dp)
+                            ) {
+                                Text("PITCH DECK", color = Color.Black, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                            }
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("INVESTIČNÍ MÍSTNOST 📈", color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                        }
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = "Vdechněte nápadu duši! Otevřete interaktivní prezentaci vizualizující řešení pro investory a partnery.",
+                            color = Color(0xFFC7C5D6),
+                            fontSize = 11.sp
+                        )
+                    }
+                    Text("💡", fontSize = 28.sp, modifier = Modifier.padding(start = 10.dp))
+                }
+            }
+        }
+
         item {
             Card(
                 colors = CardDefaults.cardColors(containerColor = AccentPurple),
@@ -779,6 +821,292 @@ fun GuideTab(
             dismissButton = {
                 TextButton(onClick = { isNewProjectDialogShown = false }) {
                     Text("Zrušit", color = Color.White)
+                }
+            }
+        )
+    }
+
+    if (isPitchDeckOpen) {
+        var activeSlide by remember { mutableStateOf(0) } // 0: Vize, 1: Problém, 2: Simulátor příjmů, 3: Odeslat oslovení
+        var estimateUsers by remember { mutableStateOf(1200f) }
+        var estimatePrice by remember { mutableStateOf(180f) }
+        
+        var senderName by remember { mutableStateOf("") }
+        var senderContact by remember { mutableStateOf("") }
+        var senderMessage by remember { mutableStateOf("Dobrý den, zaujal mě váš hudebně-vizuální projekt SPARK. Pojďme se spojit a probrat možnosti investice či licenčního partnerství.") }
+        var pitchSubmitted by remember { mutableStateOf(false) }
+
+        AlertDialog(
+            onDismissRequest = { isPitchDeckOpen = false },
+            containerColor = Color(0xFF0F0B24),
+            properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false),
+            modifier = Modifier
+                .fillMaxWidth(0.94f)
+                .fillMaxHeight(0.85f)
+                .border(2.dp, AccentNeonCyan, RoundedCornerShape(20.dp)),
+            title = {
+                Column {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "💡 PREZENTAČNÍ MÍSTNOST SPARK",
+                            fontWeight = FontWeight.Bold,
+                            color = AccentNeonCyan,
+                            fontSize = 15.sp
+                        )
+                        IconButton(onClick = { isPitchDeckOpen = false }) {
+                            Icon(imageVector = Icons.Default.Close, contentDescription = "Zavřít", tint = Color.Gray)
+                        }
+                    }
+                    Text(
+                        text = "Vdechněte nápadu duši a získejte technické partnery / investory 📈",
+                        color = Color.LightGray,
+                        fontSize = 10.sp
+                    )
+                }
+            },
+            text = {
+                Column(modifier = Modifier.fillMaxSize()) {
+                    // Slide Select tabs
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .horizontalScroll(rememberScrollState())
+                            .padding(vertical = 4.dp),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        val slideNames = listOf("💎 Vize", "⚠️ Problém & Řešení", "📊 Kalkulačka SaaS", "✉️ Oslovení partnerů")
+                        slideNames.forEachIndexed { sIdx, sName ->
+                            val isSel = activeSlide == sIdx
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(if (isSel) AccentNeonCyan else Color(0xFF1B113A))
+                                    .clickable { activeSlide = sIdx }
+                                    .padding(horizontal = 10.dp, vertical = 6.dp)
+                            ) {
+                                Text(
+                                    text = sName,
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = if (isSel) Color.Black else Color.White
+                                )
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    // Content based on active slide
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f)
+                            .verticalScroll(rememberScrollState())
+                            .background(Color(0xFF070415), RoundedCornerShape(12.dp))
+                            .border(1.dp, Color(0xFF1E133F), RoundedCornerShape(12.dp))
+                            .padding(14.dp)
+                    ) {
+                        when (activeSlide) {
+                            0 -> {
+                                Text("JEDNA APLIKACE PRO CELÉ MULTIMÉDIUM", color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                                Spacer(modifier = Modifier.height(6.dp))
+                                Text(
+                                    text = "Uživatel v jediné aplikaci dokáže otextovat píseň přes Gemini AI, vygenerovat hudební stopy, vygenerovat a sestavit videoklip a nahrát jej na vestavěnou komunitní síť s licenčním tržištěm.\n\n" +
+                                           "Tento koncept dává tvůrčí svobodu každému laikovi, mamince s dětmi, začínajícímu umělci i lidem bez technického zázemí či drahého harwaru.",
+                                    color = Color(0xFFD1CFE2),
+                                    fontSize = 11.sp,
+                                    lineHeight = 16.sp
+                                )
+                                Spacer(modifier = Modifier.height(12.dp))
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .background(Color(0xFF191136), RoundedCornerShape(8.dp))
+                                        .padding(10.dp)
+                                ) {
+                                    Column {
+                                        Text("🌟 HLAVNÍ PILÍŘE PRODUKTU:", color = AccentNeonCyan, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                        Spacer(modifier = Modifier.height(4.dp))
+                                        Text("• Textový spolurežisér (Gemini AI songwriting assist)\n" +
+                                             "• Audio syntezátor & orchestrátor s lidským nádechem\n" +
+                                             "• Video generátor (Sora, Runway, Luma integrace)\n" +
+                                             "• Licensing & Social share (Komunita & Autorská práva)", color = Color.White, fontSize = 10.sp, lineHeight = 14.sp)
+                                    }
+                                }
+                            }
+                            1 -> {
+                                Text("PROBLÉM: Fragmentace tvořivého trhu (Market Pain)", color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(
+                                    text = "Dnešní autor musí platit minimálně 5 různých předplatných:\n" +
+                                           "1. ChatGPT / Gemini (Lyrics)\n" +
+                                           "2. Suno / Udio (Audio)\n" +
+                                           "3. Midjourney (Covers)\n" +
+                                           "4. Runway / Sora (Video clips)\n" +
+                                           "5. DistroKid / Tunecore (Distribuce)\n\n" +
+                                           "To stojí tisíce korun měsíčně a vyžaduje exportování / míchání souborů přes hromadu různých webů. Pro běžného uživatele je to nemožné.",
+                                    color = Color(0xFFD1CFE2),
+                                    fontSize = 11.sp,
+                                    lineHeight = 15.sp
+                                )
+                                Spacer(modifier = Modifier.height(10.dp))
+                                Text("ŘEŠENÍ SPARK: Všechno na jedno kliknutí", color = AccentNeonCyan, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(
+                                    text = "Vše tvoříte v jednom studiu, synchronizovaně. Zvuk sedí na video střihy, text je generován do rytmu. Aplikace šetří 80 % nákladů a 90 % času.",
+                                    color = Color.White,
+                                    fontSize = 11.sp,
+                                    lineHeight = 15.sp
+                                )
+                            }
+                            2 -> {
+                                Text("FINANČNÍ SIMULÁTOR (ROČNÍ PŘÍJMY - SaaS)", color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(
+                                    text = "Upravte parametry předplatitelů a ceny pro vizualizaci návratnosti této investice:",
+                                    color = Color.Gray,
+                                    fontSize = 10.sp
+                                )
+
+                                Spacer(modifier = Modifier.height(12.dp))
+
+                                // Users slider
+                                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                    Text("Platící uživatelé měsíčně:", color = Color.White, fontSize = 10.sp)
+                                    Text("${estimateUsers.toInt()} tvůrců", color = AccentNeonCyan, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                                }
+                                Slider(
+                                    value = estimateUsers,
+                                    onValueChange = { estimateUsers = it },
+                                    valueRange = 100f..10000f,
+                                    colors = SliderDefaults.colors(thumbColor = AccentNeonCyan, activeTrackColor = AccentNeonCyan)
+                                )
+
+                                Spacer(modifier = Modifier.height(8.dp))
+
+                                // Price slider
+                                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                    Text("Měsíční SaaS předplatné:", color = Color.White, fontSize = 10.sp)
+                                    Text("${estimatePrice.toInt()} Kč ($${(estimatePrice / 24).toInt()})", color = AccentNeonCyan, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                                }
+                                Slider(
+                                    value = estimatePrice,
+                                    onValueChange = { estimatePrice = it },
+                                    valueRange = 49f..490f,
+                                    colors = SliderDefaults.colors(thumbColor = AccentNeonCyan, activeTrackColor = AccentNeonCyan)
+                                )
+
+                                Spacer(modifier = Modifier.height(14.dp))
+
+                                // Calculations
+                                val monthlyRev = (estimateUsers.toInt() * estimatePrice.toInt())
+                                val yearlyRev = monthlyRev * 12
+
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .background(Color(0xFF1E133F), RoundedCornerShape(8.dp))
+                                        .padding(12.dp)
+                                ) {
+                                    Column {
+                                        Text("📊 PŘEDPOKLÁDANÝ FINANČNÍ VÝSLEDEK:", color = AccentNeonCyan, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                        Spacer(modifier = Modifier.height(6.dp))
+                                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                            Text("Měsíční obrat (Monthly Recurring Revenue):", color = Color.White, fontSize = 9.sp)
+                                            Text("${String.format("%,d", monthlyRev)} Kč", color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                                        }
+                                        Spacer(modifier = Modifier.height(4.dp))
+                                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                            Text("Roční obrat (Annual Run Rate):", color = AccentNeonCyan, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                            Text("${String.format("%,d", yearlyRev)} Kč 🎉", color = AccentNeonCyan, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                        }
+                                        Spacer(modifier = Modifier.height(4.dp))
+                                        Text("*Výpočty počítají s konzervativním konverzním poměrem 1.8% z celkového počtu stažení zdarma.", color = Color.Gray, fontSize = 8.sp)
+                                    }
+                                }
+                            }
+                            3 -> {
+                                if (pitchSubmitted) {
+                                    Box(
+                                        modifier = Modifier.fillMaxWidth().padding(10.dp),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                            Text("📬 ROZHOVOR ZAHÁJEN!", color = AccentNeonCyan, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                                            Spacer(modifier = Modifier.height(6.dp))
+                                            Text(
+                                                text = "Váš zájem a pitch-outline byly úspěšně odeslány do inkubátoru Google AI Ventures & technickým partnerům.\n\nGratulujeme k velkému prvnímu kroku k realizaci snu!",
+                                                color = Color.White,
+                                                fontSize = 11.sp,
+                                                textAlign = TextAlign.Center
+                                            )
+                                        }
+                                    }
+                                } else {
+                                    Text("NAVÁZAT SPOLUPRÁCI NEBO PŘEDLOŽIT FINANCOVÁNÍ", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    Text("Máte-li zájem o tento nápad, napište nám a vytvořme společně novou éru tvůrčího světa.", color = Color.Gray, fontSize = 10.sp)
+
+                                    Spacer(modifier = Modifier.height(10.dp))
+
+                                    OutlinedTextField(
+                                        value = senderName,
+                                        onValueChange = { senderName = it },
+                                        placeholder = { Text("Vaše jméno / Název partnerské firmy", fontSize = 11.sp, color = Color.Gray) },
+                                        colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = AccentNeonCyan, focusedTextColor = Color.White, unfocusedTextColor = Color.White),
+                                        singleLine = true,
+                                        modifier = Modifier.fillMaxWidth()
+                                    )
+
+                                    Spacer(modifier = Modifier.height(6.dp))
+
+                                    OutlinedTextField(
+                                        value = senderContact,
+                                        onValueChange = { senderContact = it },
+                                        placeholder = { Text("E-mail / Telefonní číslo", fontSize = 11.sp, color = Color.Gray) },
+                                        colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = AccentNeonCyan, focusedTextColor = Color.White, unfocusedTextColor = Color.White),
+                                        singleLine = true,
+                                        modifier = Modifier.fillMaxWidth()
+                                    )
+
+                                    Spacer(modifier = Modifier.height(6.dp))
+
+                                    OutlinedTextField(
+                                        value = senderMessage,
+                                        onValueChange = { senderMessage = it },
+                                        placeholder = { Text("Vaše zpráva pro vývojáře...", fontSize = 11.sp, color = Color.Gray) },
+                                        colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = AccentNeonCyan, focusedTextColor = Color.White, unfocusedTextColor = Color.White),
+                                        maxLines = 3,
+                                        modifier = Modifier.fillMaxWidth()
+                                    )
+
+                                    Spacer(modifier = Modifier.height(10.dp))
+
+                                    Button(
+                                        onClick = { pitchSubmitted = true },
+                                        colors = ButtonDefaults.buttonColors(containerColor = AccentNeonCyan, contentColor = Color.Black),
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) {
+                                        Text("ODESLAT NÁVRH PARTNERSTVÍ 🚀", fontWeight = FontWeight.Bold, fontSize = 11.sp)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        isPitchDeckOpen = false
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = AccentNeonCyan, contentColor = Color.Black)
+                ) {
+                    Text("Rozumím", fontWeight = FontWeight.Bold)
                 }
             }
         )
@@ -1840,6 +2168,17 @@ fun StudioTab(
                 var aiSongGenre by remember { mutableStateOf("Synthwave") }
                 val aiSongGenres = listOf("Pop", "Rock", "Synthwave", "EDM", "Lo-Fi", "Acoustic")
 
+                var showAdvancedModal by remember { mutableStateOf(false) }
+                var aiPromptStyle by remember { mutableStateOf("") }
+                var aiNegativePrompt by remember { mutableStateOf("") }
+                var aiSoundInfluence by remember { mutableStateOf(80f) }
+                var aiStyleInfluence by remember { mutableStateOf(75f) }
+                var aiVocalVoice by remember { mutableStateOf("Human") } // Human, Duet, Vocaloid, Robot
+                var aiCustomLyrics by remember { mutableStateOf("") }
+
+                val coroutineScope = rememberCoroutineScope()
+                var isPreGeneratingLyrics by remember { mutableStateOf(false) }
+
                 Card(
                     colors = CardDefaults.cardColors(containerColor = Color(0xFF140D2F)),
                     shape = RoundedCornerShape(16.dp),
@@ -1873,7 +2212,7 @@ fun StudioTab(
 
                         Spacer(modifier = Modifier.height(6.dp))
                         Text(
-                            text = "Napíšte téma a zvolte styl. Vygeneruje se kompletní hotový song (hudba + doprovod + zpěv/vokály), který se automaticky načte jako hlavní stopa.",
+                            text = "Napište téma a zvolte styl. Vygeneruje se kompletní hotový song (hudba + doprovod + zpěv/vokály), který se automaticky načte jako hlavní stopa.",
                             fontSize = 12.sp,
                             color = Color(0xFF908DAF)
                         )
@@ -1897,7 +2236,7 @@ fun StudioTab(
                                 unfocusedBorderColor = Color(0xFF261D45),
                                 focusedTextColor = Color.White,
                                 unfocusedTextColor = Color.White
-                            ),
+                             ),
                             singleLine = true,
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -1908,7 +2247,7 @@ fun StudioTab(
 
                         // Style/Genre selection
                         Text(
-                            text = "STYL / ŽÁNR SKLADBY:",
+                            text = "ZÁKLADNÍ ŽÁNR SKLADBY:",
                             color = Color.White,
                             fontSize = 11.sp,
                             fontWeight = FontWeight.Bold
@@ -1922,10 +2261,12 @@ fun StudioTab(
                                 val isSelected = aiSongGenre == g
                                 Box(
                                     modifier = Modifier
+                                        .weight(1f)
                                         .clip(RoundedCornerShape(8.dp))
                                         .background(if (isSelected) AccentNeonCyan else Color(0xFF1E133F))
                                         .clickable { aiSongGenre = g }
-                                        .padding(horizontal = 12.dp, vertical = 6.dp)
+                                        .padding(vertical = 8.dp),
+                                    contentAlignment = Alignment.Center
                                 ) {
                                     Text(
                                         text = g,
@@ -1945,10 +2286,12 @@ fun StudioTab(
                                 val isSelected = aiSongGenre == g
                                 Box(
                                     modifier = Modifier
+                                        .weight(1f)
                                         .clip(RoundedCornerShape(8.dp))
                                         .background(if (isSelected) AccentNeonCyan else Color(0xFF1E133F))
                                         .clickable { aiSongGenre = g }
-                                        .padding(horizontal = 12.dp, vertical = 6.dp)
+                                        .padding(vertical = 8.dp),
+                                    contentAlignment = Alignment.Center
                                 ) {
                                     Text(
                                         text = g,
@@ -1958,6 +2301,380 @@ fun StudioTab(
                                     )
                                 }
                             }
+                        }
+
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        // Trigger to open Advanced Generation Modal
+                        Button(
+                            onClick = { showAdvancedModal = true },
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1E133F)),
+                            shape = RoundedCornerShape(10.dp),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 4.dp)
+                        ) {
+                            Icon(
+                                imageVector = androidx.compose.material.icons.Icons.Default.Settings,
+                                contentDescription = "Advanced",
+                                tint = AccentNeonCyan,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "POKROČILÁ GENERACE ⚙️",
+                                color = AccentNeonCyan,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+
+                        // Display a summary of active advanced settings if they are non-default
+                        val isCustomized = aiPromptStyle.isNotBlank() ||
+                                           aiNegativePrompt.isNotBlank() ||
+                                           aiCustomLyrics.isNotBlank() ||
+                                           aiSoundInfluence != 80f ||
+                                           aiStyleInfluence != 75f ||
+                                           aiVocalVoice != "Human"
+
+                        if (isCustomized) {
+                            Spacer(modifier = Modifier.height(6.dp))
+                            Card(
+                                colors = CardDefaults.cardColors(containerColor = Color(0xFF1E133F)),
+                                shape = RoundedCornerShape(10.dp),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .border(1.dp, Color(0xFF261D45), RoundedCornerShape(10.dp))
+                            ) {
+                                Column(modifier = Modifier.padding(10.dp)) {
+                                    Text(
+                                        text = "Aktivní pokročilé parametry syntézy:",
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = AccentNeonCyan
+                                    )
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    if (aiCustomLyrics.isNotBlank()) {
+                                        Text("• Vlastní text (Lyrics): ${if(aiCustomLyrics.length > 30) aiCustomLyrics.take(30) + "..." else aiCustomLyrics}", fontSize = 10.sp, color = Color(0xFFE5E2F5))
+                                    }
+                                    if (aiPromptStyle.isNotBlank()) {
+                                        Text("• Prompt stylu: $aiPromptStyle", fontSize = 10.sp, color = Color(0xFFE5E2F5))
+                                    }
+                                    if (aiNegativePrompt.isNotBlank()) {
+                                        Text("• Negativní prompt: $aiNegativePrompt", fontSize = 10.sp, color = Color(0xFFE5E2F5))
+                                    }
+                                    Text("• Voice Influence: ${aiSoundInfluence.toInt()}%", fontSize = 10.sp, color = Color(0xFFE5E2F5))
+                                    Text("• Style Influence: ${aiStyleInfluence.toInt()}%", fontSize = 10.sp, color = Color(0xFFE5E2F5))
+                                    Text("• Charakter hlasu: $aiVocalVoice", fontSize = 10.sp, color = Color(0xFFE5E2F5))
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    Text(
+                                        text = "Resetovat na výchozí",
+                                        color = Color.Red,
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        modifier = Modifier
+                                            .clickable {
+                                                aiCustomLyrics = ""
+                                                aiPromptStyle = ""
+                                                aiNegativePrompt = ""
+                                                aiSoundInfluence = 80f
+                                                aiStyleInfluence = 75f
+                                                aiVocalVoice = "Human"
+                                                Toast.makeText(context, "Nastavení resetováno!", Toast.LENGTH_SHORT).show()
+                                            }
+                                            .padding(vertical = 2.dp)
+                                    )
+                                }
+                            }
+                        }
+
+                        // 'Advanced Generation' modal
+                        if (showAdvancedModal) {
+                            var tempCustomLyrics by remember { mutableStateOf(aiCustomLyrics) }
+                            var tempPromptStyle by remember { mutableStateOf(aiPromptStyle) }
+                            var tempNegativePrompt by remember { mutableStateOf(aiNegativePrompt) }
+                            var tempSoundInfluence by remember { mutableStateOf(aiSoundInfluence) }
+                            var tempStyleInfluence by remember { mutableStateOf(aiStyleInfluence) }
+                            var tempVocalVoice by remember { mutableStateOf(aiVocalVoice) }
+                            var isTempPreGeneratingLyrics by remember { mutableStateOf(false) }
+
+                            AlertDialog(
+                                onDismissRequest = { showAdvancedModal = false },
+                                containerColor = Color(0xFF140D2F),
+                                shape = RoundedCornerShape(20.dp),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .border(1.5.dp, AccentNeonCyan, RoundedCornerShape(20.dp)),
+                                title = {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = androidx.compose.material.icons.Icons.Default.Settings,
+                                            contentDescription = "Pokročilá generace",
+                                            tint = AccentNeonCyan,
+                                            modifier = Modifier.size(22.dp)
+                                        )
+                                        Text(
+                                            text = "ADVANCED GENERATION ⚙️",
+                                            color = Color.White,
+                                            fontSize = 16.sp,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                    }
+                                },
+                                text = {
+                                    Column(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .heightIn(max = 400.dp) // Bound the maximum height to prevent screen overflow
+                                            .verticalScroll(rememberScrollState()),
+                                        verticalArrangement = Arrangement.spacedBy(14.dp)
+                                    ) {
+                                        Text(
+                                            text = "Zde můžete jemně vyladit parametry AI generátoru hudby, specifikovat nežádoucí zvuky, upravit procento vlivu prvků nebo vložit vlastní text skladby.",
+                                            fontSize = 11.sp,
+                                            color = Color(0xFF908DAF)
+                                        )
+
+                                        // 1. Lyrics Input
+                                        Column {
+                                            Row(
+                                                modifier = Modifier.fillMaxWidth(),
+                                                horizontalArrangement = Arrangement.SpaceBetween,
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                Text(
+                                                    text = "TEXT SKLADBY / LYRICS (Vlastní text):",
+                                                    color = Color.White,
+                                                    fontSize = 10.sp,
+                                                    fontWeight = FontWeight.Bold
+                                                )
+                                                if (isTempPreGeneratingLyrics) {
+                                                    CircularProgressIndicator(
+                                                        modifier = Modifier.size(12.dp),
+                                                        color = AccentNeonCyan,
+                                                        strokeWidth = 1.dp
+                                                    )
+                                                } else {
+                                                    Text(
+                                                        text = "Předgenerovat text 🪄",
+                                                        color = AccentNeonCyan,
+                                                        fontSize = 10.sp,
+                                                        fontWeight = FontWeight.Bold,
+                                                        modifier = Modifier
+                                                            .clickable {
+                                                                coroutineScope.launch {
+                                                                    isTempPreGeneratingLyrics = true
+                                                                    try {
+                                                                        val lyricsTopic = if (aiSongTopic.isNotBlank()) aiSongTopic else "noční jízda"
+                                                                        val response = com.example.data.network.GeminiClient.generateSongLyrics(lyricsTopic, aiSongGenre)
+                                                                        tempCustomLyrics = response
+                                                                    } catch (e: Exception) {
+                                                                        Toast.makeText(context, "Služba chybovala: ${e.message}", Toast.LENGTH_SHORT).show()
+                                                                    } finally {
+                                                                        isTempPreGeneratingLyrics = false
+                                                                    }
+                                                                }
+                                                            }
+                                                    )
+                                                }
+                                            }
+                                            Spacer(modifier = Modifier.height(4.dp))
+                                            OutlinedTextField(
+                                                value = tempCustomLyrics,
+                                                onValueChange = { tempCustomLyrics = it },
+                                                placeholder = { Text("Zadejte vlastní kompletní text (sloky, refrén...), který AI přezpívá, nebo si jej nechte předgenerovat tlačítkem výše.", fontSize = 11.sp, color = Color.Gray) },
+                                                colors = OutlinedTextFieldDefaults.colors(
+                                                    focusedBorderColor = AccentNeonCyan,
+                                                    unfocusedBorderColor = Color(0xFF261D45),
+                                                    focusedTextColor = Color.White,
+                                                    unfocusedTextColor = Color.White
+                                                ),
+                                                maxLines = 6,
+                                                modifier = Modifier.fillMaxWidth()
+                                            )
+                                        }
+
+                                        // 2. Style Prompt Input
+                                        Column {
+                                            Text(
+                                                text = "DETAILNÍ PROMPT STYLU / STYLE PROMPT:",
+                                                color = Color.White,
+                                                fontSize = 10.sp,
+                                                fontWeight = FontWeight.Bold
+                                            )
+                                            Spacer(modifier = Modifier.height(4.dp))
+                                            OutlinedTextField(
+                                                value = tempPromptStyle,
+                                                onValueChange = { tempPromptStyle = it },
+                                                placeholder = { Text("např. heavy vintage analog synth, wide chorus vocals, retro beats...", fontSize = 11.sp, color = Color.Gray) },
+                                                colors = OutlinedTextFieldDefaults.colors(
+                                                    focusedBorderColor = AccentNeonCyan,
+                                                    unfocusedBorderColor = Color(0xFF261D45),
+                                                    focusedTextColor = Color.White,
+                                                    unfocusedTextColor = Color.White
+                                                ),
+                                                singleLine = true,
+                                                modifier = Modifier.fillMaxWidth()
+                                            )
+                                        }
+
+                                        // 3. Negative Prompt Input
+                                        Column {
+                                            Text(
+                                                text = "NEŽÁDOUCÍ ZVUKY / NEGATIVE PROMPT:",
+                                                color = Color.White,
+                                                fontSize = 10.sp,
+                                                fontWeight = FontWeight.Bold
+                                            )
+                                            Spacer(modifier = Modifier.height(4.dp))
+                                            OutlinedTextField(
+                                                value = tempNegativePrompt,
+                                                onValueChange = { tempNegativePrompt = it },
+                                                placeholder = { Text("např. sharp metallic static noise, distorted clicks, compression artifacts...", fontSize = 11.sp, color = Color.Gray) },
+                                                colors = OutlinedTextFieldDefaults.colors(
+                                                    focusedBorderColor = AccentNeonCyan,
+                                                    unfocusedBorderColor = Color(0xFF261D45),
+                                                    focusedTextColor = Color.White,
+                                                    unfocusedTextColor = Color.White
+                                                ),
+                                                singleLine = true,
+                                                modifier = Modifier.fillMaxWidth()
+                                            )
+                                        }
+
+                                        // 4. Voice Influence Percentage Slider
+                                        Column {
+                                            Row(
+                                                modifier = Modifier.fillMaxWidth(),
+                                                horizontalArrangement = Arrangement.SpaceBetween,
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                Text(
+                                                    text = "VOICE INFLUENCE (VLIV HLASU / DOPROVODU):",
+                                                    color = Color.White,
+                                                    fontSize = 10.sp,
+                                                    fontWeight = FontWeight.Bold
+                                                )
+                                                Text(
+                                                    text = "${tempSoundInfluence.toInt()}%",
+                                                    color = AccentNeonCyan,
+                                                    fontSize = 11.sp,
+                                                    fontWeight = FontWeight.Bold
+                                                )
+                                            }
+                                            Slider(
+                                                value = tempSoundInfluence,
+                                                onValueChange = { tempSoundInfluence = it },
+                                                valueRange = 0f..100f,
+                                                colors = SliderDefaults.colors(
+                                                    thumbColor = AccentNeonCyan,
+                                                    activeTrackColor = AccentNeonCyan,
+                                                    inactiveTrackColor = Color(0xFF261D45)
+                                                )
+                                            )
+                                        }
+
+                                        // 5. Style Influence Percentage Slider
+                                        Column {
+                                            Row(
+                                                modifier = Modifier.fillMaxWidth(),
+                                                horizontalArrangement = Arrangement.SpaceBetween,
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                Text(
+                                                    text = "STYLE INFLUENCE (VLIV INTENZITY STYLU):",
+                                                    color = Color.White,
+                                                    fontSize = 10.sp,
+                                                    fontWeight = FontWeight.Bold
+                                                )
+                                                Text(
+                                                    text = "${tempStyleInfluence.toInt()}%",
+                                                    color = AccentNeonCyan,
+                                                    fontSize = 11.sp,
+                                                    fontWeight = FontWeight.Bold
+                                                )
+                                            }
+                                            Slider(
+                                                value = tempStyleInfluence,
+                                                onValueChange = { tempStyleInfluence = it },
+                                                valueRange = 0f..100f,
+                                                colors = SliderDefaults.colors(
+                                                    thumbColor = AccentNeonCyan,
+                                                    activeTrackColor = AccentNeonCyan,
+                                                    inactiveTrackColor = Color(0xFF261D45)
+                                                )
+                                            )
+                                        }
+
+                                        // 6. Character / Model Selection
+                                        Column {
+                                            Text(
+                                                text = "CHARAKTER AI HLASU / VOICE MODEL:",
+                                                color = Color.White,
+                                                fontSize = 10.sp,
+                                                fontWeight = FontWeight.Bold
+                                            )
+                                            Spacer(modifier = Modifier.height(4.dp))
+                                            Row(
+                                                modifier = Modifier.fillMaxWidth(),
+                                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                            ) {
+                                                listOf(
+                                                    "Human" to "🎤 Lidský",
+                                                    "Duet" to "👥 Duet",
+                                                    "Vocaloid" to "⚡ Vocaloid",
+                                                    "Robot" to "🤖 Robot"
+                                                ).forEach { (code, label) ->
+                                                    val isVoiceSel = tempVocalVoice == code
+                                                    Box(
+                                                        modifier = Modifier
+                                                            .weight(1f)
+                                                            .clip(RoundedCornerShape(6.dp))
+                                                            .background(if (isVoiceSel) AccentNeonCyan else Color(0xFF1E133F))
+                                                            .clickable { tempVocalVoice = code }
+                                                            .padding(vertical = 8.dp),
+                                                        contentAlignment = Alignment.Center
+                                                    ) {
+                                                        Text(
+                                                            text = label,
+                                                            fontSize = 10.sp,
+                                                            fontWeight = FontWeight.Bold,
+                                                            color = if (isVoiceSel) Color.Black else Color.White
+                                                        )
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                },
+                                confirmButton = {
+                                    Button(
+                                        onClick = {
+                                            aiCustomLyrics = tempCustomLyrics
+                                            aiPromptStyle = tempPromptStyle
+                                            aiNegativePrompt = tempNegativePrompt
+                                            aiSoundInfluence = tempSoundInfluence
+                                            aiStyleInfluence = tempStyleInfluence
+                                            aiVocalVoice = tempVocalVoice
+                                            showAdvancedModal = false
+                                            Toast.makeText(context, "Nastavení úspěšně použito!", Toast.LENGTH_SHORT).show()
+                                        },
+                                        colors = ButtonDefaults.buttonColors(containerColor = AccentNeonCyan, contentColor = Color.Black)
+                                    ) {
+                                        Text("POUŽÍT NASTAVENÍ", fontWeight = FontWeight.Bold, fontSize = 11.sp)
+                                    }
+                                },
+                                dismissButton = {
+                                    TextButton(
+                                        onClick = { showAdvancedModal = false }
+                                    ) {
+                                        Text("ZRUŠIT", color = Color.White, fontSize = 11.sp)
+                                    }
+                                }
+                            )
                         }
 
                         Spacer(modifier = Modifier.height(16.dp))
@@ -1998,7 +2715,17 @@ fun StudioTab(
                         } else {
                             Button(
                                 onClick = {
-                                    viewModel.generateCompleteSong(context, aiSongTopic, aiSongGenre)
+                                    viewModel.generateCompleteSong(
+                                        context = context,
+                                        topic = aiSongTopic,
+                                        selectedGenre = aiSongGenre,
+                                        promptStyle = aiPromptStyle,
+                                        negativePrompt = aiNegativePrompt,
+                                        soundInfluencePercent = aiSoundInfluence,
+                                        styleInfluencePercent = aiStyleInfluence,
+                                        vocalVoice = aiVocalVoice,
+                                        customLyrics = aiCustomLyrics
+                                    )
                                 },
                                 colors = ButtonDefaults.buttonColors(containerColor = AccentNeonCyan, contentColor = Color.Black),
                                 modifier = Modifier
@@ -2925,6 +3652,21 @@ fun VideoTab(
 
     // Active configuration dialogues
     var activeEditingTransition by remember { mutableStateOf<com.example.util.TransitionData?>(null) }
+    
+    val coroutineScope = rememberCoroutineScope()
+    var aiVideoEngine by remember { mutableStateOf("Spark AI Cinematics") }
+    val videoEngines = listOf("Spark AI Cinematics", "Runway Gen-3 Alpha", "Luma Dream Machine", "Sora Cinema Ultra", "Kling AI", "Stable Video")
+    
+    var aiVideoAspect by remember { mutableStateOf("9:16") }
+    val videoAspects = listOf("9:16", "16:9", "1:1")
+    
+    var aiMotionIntensity by remember { mutableStateOf(50f) }
+    
+    var aiVisualStyle by remember { mutableStateOf("Hyper-Realistic CGI") }
+    val videoStyles = listOf("Hyper-Realistic CGI", "Retro Japan Anime", "Vaporwave Neon 3D", "Oil Painting Art", "Cyberspace Matrix")
+    
+    var aiVideoPrompt by remember { mutableStateOf("") }
+    var isSuggestingVideoPrompt by remember { mutableStateOf(false) }
 
     Column(
         modifier = Modifier
@@ -3407,61 +4149,217 @@ fun VideoTab(
                         Spacer(modifier = Modifier.height(10.dp))
 
                         // --- NOVOST V30: AI VIDEO GENERATOR TO SONG ---
-                        if (isGeneratingAIVideoTimeline) {
-                            Card(
-                                colors = CardDefaults.cardColors(containerColor = Color(0xFF150D2E)),
-                                shape = RoundedCornerShape(12.dp),
-                                border = BorderStroke(1.5.dp, AccentNeonCyan),
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(vertical = 8.dp)
-                            ) {
-                                Column(
-                                    modifier = Modifier.padding(14.dp),
-                                    horizontalAlignment = Alignment.CenterHorizontally
+                        Card(
+                            colors = CardDefaults.cardColors(containerColor = Color(0xFF130A2B)),
+                            shape = RoundedCornerShape(14.dp),
+                            border = BorderStroke(1.dp, Color(0xFF2B1C4C)),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 10.dp)
+                        ) {
+                            Column(modifier = Modifier.padding(14.dp)) {
+                                Text(
+                                    text = "🎬 REŽISÉRSKÉ STUDIO AI VIDEA",
+                                    color = AccentNeonCyan,
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.ExtraBold
+                                )
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(
+                                    text = "Generování filmového videoklipu synchronizovaného s tempem vaší nahrávky.",
+                                    color = Color.LightGray,
+                                    fontSize = 11.sp
+                                )
+
+                                Spacer(modifier = Modifier.height(12.dp))
+
+                                // Select Video Engine
+                                Text("1. TECHNICKÝ VIDEO ENGINE: ⚙️", color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Row(
+                                    modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
                                 ) {
-                                    CircularProgressIndicator(color = AccentNeonCyan, modifier = Modifier.size(24.dp))
-                                    Spacer(modifier = Modifier.height(8.dp))
-                                    Text(
-                                        text = "AI navrhuje scény a generuje filmové MP4 sekvence...",
-                                        color = Color.White,
-                                        fontWeight = FontWeight.Bold,
-                                        fontSize = 12.sp
-                                    )
-                                    Text(
-                                        text = "Sestavuji filmovou osu podle hudby a zahajuji rendering.",
-                                        color = Color.Gray,
-                                        fontSize = 11.sp,
-                                        textAlign = TextAlign.Center
-                                    )
+                                    videoEngines.forEach { eng ->
+                                        val isSel = aiVideoEngine == eng
+                                        Box(
+                                            modifier = Modifier
+                                                .clip(RoundedCornerShape(6.dp))
+                                                .background(if (isSel) AccentNeonCyan else Color(0xFF1E133F))
+                                                .clickable { aiVideoEngine = eng }
+                                                .padding(horizontal = 10.dp, vertical = 6.dp)
+                                        ) {
+                                            Text(eng, fontSize = 9.sp, fontWeight = FontWeight.Bold, color = if (isSel) Color.Black else Color.White)
+                                        }
+                                    }
                                 }
-                            }
-                        } else {
-                            Button(
-                                onClick = {
-                                    isPreviewPlaying = false
-                                    viewModel.generateAIVideoClipFromSong(context)
-                                },
-                                colors = ButtonDefaults.buttonColors(containerColor = AccentNeonCyan, contentColor = Color.Black),
-                                shape = RoundedCornerShape(10.dp),
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(vertical = 8.dp)
-                                    .testTag("submit_ai_video_gen")
-                            ) {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Icon(
-                                        imageVector = androidx.compose.material.icons.Icons.Default.PlayArrow,
-                                        contentDescription = "AI Video Gen",
-                                        tint = Color.Black,
-                                        modifier = Modifier.size(16.dp)
+
+                                Spacer(modifier = Modifier.height(10.dp))
+
+                                // Select Aspect Ratio and Visual Style side-by-side
+                                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text("POMĚR STRAN:", color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                                        Spacer(modifier = Modifier.height(4.dp))
+                                        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                            videoAspects.forEach { asp ->
+                                                val isSel = aiVideoAspect == asp
+                                                Box(
+                                                    modifier = Modifier
+                                                        .weight(1f)
+                                                        .clip(RoundedCornerShape(6.dp))
+                                                        .background(if (isSel) AccentNeonCyan else Color(0xFF1E133F))
+                                                        .clickable { aiVideoAspect = asp }
+                                                        .padding(vertical = 6.dp),
+                                                    contentAlignment = Alignment.Center
+                                                ) {
+                                                    Text(asp, fontSize = 9.sp, fontWeight = FontWeight.Bold, color = if (isSel) Color.Black else Color.White)
+                                                }
+                                            }
+                                        }
+                                    }
+
+                                    Column(modifier = Modifier.weight(1.2f)) {
+                                        Text("UMĚLECKÝ STYL:", color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                                        Spacer(modifier = Modifier.height(4.dp))
+                                        Box(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .clip(RoundedCornerShape(6.dp))
+                                                .background(Color(0xFF1E133F))
+                                                .clickable {
+                                                    // Cycle style
+                                                    val nextIdx = (videoStyles.indexOf(aiVisualStyle) + 1) % videoStyles.size
+                                                    aiVisualStyle = videoStyles[nextIdx]
+                                                }
+                                                .padding(vertical = 6.dp),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Text("🎨 $aiVisualStyle 🔄", fontSize = 9.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                                        }
+                                    }
+                                }
+
+                                Spacer(modifier = Modifier.height(10.dp))
+
+                                // Motion intensity slider
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text("DYNAMIKA INTENZITY POHYBU (STŘIHU):", color = Color.White, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                                    Text("${aiMotionIntensity.toInt()}%", color = AccentNeonCyan, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                                }
+                                Slider(
+                                    value = aiMotionIntensity,
+                                    onValueChange = { aiMotionIntensity = it },
+                                    valueRange = 10f..100f,
+                                    colors = SliderDefaults.colors(
+                                        thumbColor = AccentNeonCyan,
+                                        activeTrackColor = AccentNeonCyan,
+                                        inactiveTrackColor = Color(0xFF25154A)
                                     )
-                                    Spacer(modifier = Modifier.width(6.dp))
-                                    Text(
-                                        text = "AI GENEROVAT FILMOVÝ KLIP PODLE SKLADBY 🎬",
-                                        fontWeight = FontWeight.Black,
-                                        fontSize = 11.sp
-                                    )
+                                )
+
+                                Spacer(modifier = Modifier.height(10.dp))
+
+                                // AI Prompt for the Video clip Scene
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text("VIZUÁLNÍ POPIS SCÉNY (VIDEO PROMPT):", color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                                    if (isSuggestingVideoPrompt) {
+                                        CircularProgressIndicator(modifier = Modifier.size(12.dp), color = AccentNeonCyan, strokeWidth = 1.2.dp)
+                                    } else {
+                                        Text(
+                                            text = "Navrhnout z lyrics 🪄",
+                                            color = AccentNeonCyan,
+                                            fontSize = 9.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            modifier = Modifier.clickable {
+                                                coroutineScope.launch {
+                                                    isSuggestingVideoPrompt = true
+                                                    try {
+                                                        val lyricsText = activeProj?.lyrics ?: ""
+                                                        val genreText = activeProj?.genre ?: ""
+                                                        val prompt = "Navrhni jeden stručný, vysoce vizuální anglický popis scény (video prompt) pro filmový model o délce do 15 slov, který se hodí k písní v žánru $genreText s tématem: '$lyricsText'. Napiš čistě jen ten prompt v angličtině bez uvozovek a úvodů."
+                                                        val response = com.example.data.network.GeminiClient.generateText(prompt, "Jsi filmový prompt inženýr.")
+                                                        aiVideoPrompt = response.trim().replace("\"", "")
+                                                    } catch (e: Exception) {
+                                                        aiVideoPrompt = "surreal cinematic cosmic energy pulse, glowing visualizer"
+                                                    } finally {
+                                                        isSuggestingVideoPrompt = false
+                                                    }
+                                                }
+                                            }
+                                        )
+                                    }
+                                }
+                                Spacer(modifier = Modifier.height(4.dp))
+                                OutlinedTextField(
+                                    value = aiVideoPrompt,
+                                    onValueChange = { aiVideoPrompt = it },
+                                    placeholder = { Text("nepř. neon glowing synth waves moving over futuristic highway, cyberpunk cgi, ultra sharp...", fontSize = 10.sp, color = Color.Gray) },
+                                    colors = OutlinedTextFieldDefaults.colors(
+                                        focusedBorderColor = AccentNeonCyan,
+                                        unfocusedBorderColor = Color(0xFF261D45),
+                                        focusedTextColor = Color.White,
+                                        unfocusedTextColor = Color.White
+                                    ),
+                                    singleLine = true,
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+
+                                Spacer(modifier = Modifier.height(14.dp))
+
+                                // Generate Button
+                                if (isGeneratingAIVideoTimeline) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.Center,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        CircularProgressIndicator(color = AccentNeonCyan, modifier = Modifier.size(18.dp))
+                                        Spacer(modifier = Modifier.width(10.dp))
+                                        Text("Generuji a renderuji video přes $aiVideoEngine...", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                    }
+                                } else {
+                                    Button(
+                                        onClick = {
+                                            isPreviewPlaying = false
+                                            viewModel.generateAIVideoClipFromSong(
+                                                context = context,
+                                                videoEngine = aiVideoEngine,
+                                                aspectRatio = aiVideoAspect,
+                                                motionIntensity = aiMotionIntensity,
+                                                visualStyle = aiVisualStyle,
+                                                customVideoPrompt = aiVideoPrompt
+                                            )
+                                        },
+                                        colors = ButtonDefaults.buttonColors(containerColor = AccentNeonCyan, contentColor = Color.Black),
+                                        shape = RoundedCornerShape(10.dp),
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .testTag("submit_ai_video_gen")
+                                    ) {
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            Icon(
+                                                imageVector = androidx.compose.material.icons.Icons.Default.PlayArrow,
+                                                contentDescription = "AI Video Gen",
+                                                tint = Color.Black,
+                                                modifier = Modifier.size(16.dp)
+                                            )
+                                            Spacer(modifier = Modifier.width(6.dp))
+                                            Text(
+                                                text = "SPUSTIT AI GENERÁTOR VIDEOKLIPU 🎬",
+                                                fontWeight = FontWeight.Black,
+                                                fontSize = 11.sp
+                                            )
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -4330,10 +5228,10 @@ fun MarketplaceTab(
 
         // Category Filter Chips
         Row(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            val categories = listOf("Všechno 🔍", "Prémiové nástroje 💎", "Komunitní skladby 🌍")
+            val categories = listOf("Všechno 🔍", "Prémiové nástroje 💎", "Komunitní skladby 🌍", "Spoluautoři 👥", "Distribuce & Výdělky 📈")
             categories.forEachIndexed { index, name ->
                 val isSelected = selectedCategory == index
                 Box(
@@ -4356,40 +5254,319 @@ fun MarketplaceTab(
 
         Spacer(modifier = Modifier.height(14.dp))
 
-        // Filter the items list based on selected tab and search query
-        val filteredItems = items.filter { item ->
-            // Category filter
-            val matchesCategory = when (selectedCategory) {
-                1 -> !item.isCommunityPublished
-                2 -> item.isCommunityPublished
-                else -> true
-            }
+        if (selectedCategory == 3) {
+            // Render Co-authors section
+            var coAuthorMessage by remember { mutableStateOf("Ahoj, líbí se mi tvůj styl. Chci do projektu zapojit tvé vokály!") }
+            var isProposalSent by remember { mutableStateOf<String?>(null) } // Name of recipient
+            var showProposalDialog by remember { mutableStateOf<String?>(null) }
 
-            // Search query filter
-            val matchesSearch = if (searchQuery.isBlank()) {
-                true
-            } else {
-                item.name.contains(searchQuery, ignoreCase = true) ||
-                        item.description.contains(searchQuery, ignoreCase = true) ||
-                        item.type.contains(searchQuery, ignoreCase = true) ||
-                        (item.tags ?: "").contains(searchQuery, ignoreCase = true)
-            }
+            val coAuthors = listOf(
+                Pair("Karolína S. (Zpěvačka / R&B)", "🎤 Krásné, teplé vokály a lyrická hloubka. Hledám melodičtější skladby k nazpívání."),
+                Pair("Vojtěch D. (Rock Kytarista)", "⚡ Elektrické kytary, metalová sóla a rify. Mohu dodat energii tvému beatu."),
+                Pair("DJ Nova (Vocal Tuning / EDM)", "🎹 Ladění vokálů, vocoder, beatmaking. Pomohu ti vdechnout moderní klubovou duši.")
+            )
 
-            matchesCategory && matchesSearch
-        }
-
-        if (filteredItems.isEmpty()) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .weight(1f),
-                contentAlignment = Alignment.Center
+            LazyColumn(
+                modifier = Modifier.fillMaxWidth().weight(1f),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text("Nebyly nalezeny žádné nahrávky splňující filtry.", color = Color.Gray, fontSize = 12.sp)
+                item {
+                    Text(
+                        text = "SPOLUPRACOVAT S OSTATNÍMI AUTORY 🤝",
+                        fontWeight = FontWeight.Bold,
+                        color = AccentNeonCyan,
+                        fontSize = 13.sp
+                    )
+                    Text(
+                        text = "Nemusíte doručit vše sami! Spojte se s ostatními talentovanými členy komunity a vytvořte hit.",
+                        color = Color.Gray,
+                        fontSize = 11.sp
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                }
+
+                items(coAuthors) { auth ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(Color(0xFF0F0B24), RoundedCornerShape(14.dp))
+                            .border(1.dp, Color(0xFF231846), RoundedCornerShape(14.dp))
+                            .padding(14.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(auth.first, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(auth.second, color = Color.LightGray, fontSize = 11.sp)
+                        }
+
+                        Spacer(modifier = Modifier.width(10.dp))
+
+                        Button(
+                            onClick = { showProposalDialog = auth.first },
+                            colors = ButtonDefaults.buttonColors(containerColor = AccentNeonCyan, contentColor = Color.Black),
+                            shape = RoundedCornerShape(8.dp)
+                        ) {
+                            Text("Navrhnout", fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+            }
+
+            if (showProposalDialog != null) {
+                AlertDialog(
+                    onDismissRequest = { showProposalDialog = null },
+                    containerColor = Color(0xFF130D2E),
+                    title = { Text("🤝 SMLOUVA O KO-AUTORSTVÍ", color = AccentNeonCyan, fontSize = 14.sp, fontWeight = FontWeight.Bold) },
+                    text = {
+                        Column {
+                            Text("Adresát: ${showProposalDialog}", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text("Navrhujete spolupráci na aktivním projektu. Vyberte royalty split:", color = Color.LightGray, fontSize = 11.sp)
+                            Spacer(modifier = Modifier.height(6.dp))
+                            
+                            var selectedSplit by remember { mutableStateOf(50) }
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                listOf(50, 60, 70).forEach { split ->
+                                    val isSplitSel = selectedSplit == split
+                                    Box(
+                                        modifier = Modifier
+                                            .clip(RoundedCornerShape(6.dp))
+                                            .background(if (isSplitSel) AccentNeonCyan else Color(0xFF1B113A))
+                                            .clickable { selectedSplit = split }
+                                            .padding(horizontal = 12.dp, vertical = 6.dp)
+                                    ) {
+                                        Text("${split}% / ${(100 - split)}%", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = if (isSplitSel) Color.Black else Color.White)
+                                    }
+                                }
+                            }
+                            
+                            Spacer(modifier = Modifier.height(10.dp))
+                            OutlinedTextField(
+                                value = coAuthorMessage,
+                                onValueChange = { coAuthorMessage = it },
+                                label = { Text("Zpráva pro spoluautora", color = Color.Gray, fontSize = 11.sp) },
+                                colors = OutlinedTextFieldDefaults.colors(focusedTextColor = Color.White, unfocusedTextColor = Color.White, focusedBorderColor = AccentNeonCyan)
+                            )
+                        }
+                    },
+                    confirmButton = {
+                        Button(
+                            onClick = {
+                                isProposalSent = showProposalDialog
+                                showProposalDialog = null
+                                Toast.makeText(context, "Ko-autorský návrh odeslán!", Toast.LENGTH_LONG).show()
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = AccentNeonCyan, contentColor = Color.Black)
+                        ) {
+                            Text("Odeslat", fontWeight = FontWeight.Bold)
+                        }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { showProposalDialog = null }) {
+                            Text("Zpět", color = Color.White)
+                        }
+                    }
+                )
+            }
+
+            if (isProposalSent != null) {
+                AlertDialog(
+                    onDismissRequest = { isProposalSent = null },
+                    containerColor = Color(0xFF0F0B24),
+                    title = { Text("📬 NÁVRH ODESLÁN", color = AccentNeonCyan, fontSize = 14.sp, fontWeight = FontWeight.Bold) },
+                    text = {
+                        Text(
+                            text = "Váš autorský návrh s rozdělením autorských práv byl úspěšně zaznamenán a odeslán autorovi ${isProposalSent}.\n\nOzveme se vám ihned, jakmile druhá strana schválí digitální ko-autorskou smlouvu.",
+                            color = Color.White,
+                            fontSize = 11.sp
+                        )
+                    },
+                    confirmButton = {
+                        Button(onClick = { isProposalSent = null }, colors = ButtonDefaults.buttonColors(containerColor = AccentNeonCyan)) {
+                            Text("Zavřít", color = Color.Black)
+                        }
+                    }
+                )
+            }
+        } else if (selectedCategory == 4) {
+            // Render Distribution & Earnings
+            var isPublishedToSpotify by remember { mutableStateOf(false) }
+            var isPublishedToTiktok by remember { mutableStateOf(false) }
+            var licenseFee by remember { mutableStateOf(49f) }
+            var totalStreamsGoal by remember { mutableStateOf(2500f) }
+
+            LazyColumn(
+                modifier = Modifier.fillMaxWidth().weight(1f),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                item {
+                    Text(
+                        text = "MONETIZACE, PRODEJ & DISTRIBUCE 📈",
+                        fontWeight = FontWeight.Bold,
+                        color = AccentNeonCyan,
+                        fontSize = 13.sp
+                    )
+                    Text(
+                        text = "Vydělávejte peníze ze své tvořivosti. Nastavte licenční politiku a publikujte song na streamovací služby jedním kliknutím.",
+                        color = Color.Gray,
+                        fontSize = 11.sp
+                    )
+                    Spacer(modifier = Modifier.height(10.dp))
+                }
+
+                item {
+                    Card(
+                        colors = CardDefaults.cardColors(containerColor = Color(0xFF13092A)),
+                        border = BorderStroke(1.dp, Color(0xFF23144C)),
+                        shape = RoundedCornerShape(14.dp)
+                    ) {
+                        Column(modifier = Modifier.padding(14.dp)) {
+                            Text("PUBLIKAČNÍ BRÁNA 🌍", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 11.sp)
+                            Spacer(modifier = Modifier.height(8.dp))
+
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text("Odeslat na Spotify & Apple Music", color = Color.LightGray, fontSize = 11.sp)
+                                Switch(
+                                    checked = isPublishedToSpotify,
+                                    onCheckedChange = { isPublishedToSpotify = it },
+                                    colors = SwitchDefaults.colors(checkedThumbColor = AccentNeonCyan, checkedTrackColor = Color(0xFF2C164F))
+                                )
+                            }
+
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text("Zpřístupnit na TikTok & Instagram Reels", color = Color.LightGray, fontSize = 11.sp)
+                                Switch(
+                                    checked = isPublishedToTiktok,
+                                    onCheckedChange = { isPublishedToTiktok = it },
+                                    colors = SwitchDefaults.colors(checkedThumbColor = AccentNeonCyan, checkedTrackColor = Color(0xFF2C164F))
+                                )
+                            }
+                        }
+                    }
+                }
+
+                item {
+                    Card(
+                        colors = CardDefaults.cardColors(containerColor = Color(0xFF0F0B24)),
+                        border = BorderStroke(1.dp, Color(0xFF231846)),
+                        shape = RoundedCornerShape(14.dp)
+                    ) {
+                        Column(modifier = Modifier.padding(14.dp)) {
+                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                Text("LICENCE PRO REKLAMY (USD):", color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                                Text("$${licenseFee.toInt()}", color = AccentNeonCyan, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                            }
+                            Slider(
+                                value = licenseFee,
+                                onValueChange = { licenseFee = it },
+                                valueRange = 5f..500f,
+                                colors = SliderDefaults.colors(thumbColor = AccentNeonCyan, activeTrackColor = AccentNeonCyan)
+                            )
+                            Text("*Uživatelé her a tvůrci na YouTube si mohou zakoupit neexkluzivní licenci k vašemu videoklipu pro podklad.", color = Color.Gray, fontSize = 8.sp)
+                        }
+                    }
+                }
+
+                item {
+                    Card(
+                        colors = CardDefaults.cardColors(containerColor = Color(0xFF1B113A)),
+                        shape = RoundedCornerShape(14.dp)
+                    ) {
+                        Column(modifier = Modifier.padding(14.dp)) {
+                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                Text("OČEKÁVANÉ STREAMY (MĚSÍČNĚ):", color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                                Text("${totalStreamsGoal.toInt()} přehrání", color = AccentNeonCyan, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                            }
+                            Slider(
+                                value = totalStreamsGoal,
+                                onValueChange = { totalStreamsGoal = it },
+                                valueRange = 1000f..100000f,
+                                colors = SliderDefaults.colors(thumbColor = AccentNeonCyan, activeTrackColor = AccentNeonCyan)
+                            )
+
+                            // Royaltie calculation
+                            val streamEarnings = (totalStreamsGoal * 0.09) // 0.09 CZK per stream
+                            val licenseSales = (licenseFee * 24 * 3) // estimating 3 license sales per month
+                            val estimatedMonTotal = streamEarnings + licenseSales
+
+                            Spacer(modifier = Modifier.height(10.dp))
+                            Text("📊 ODHADY MĚSÍČNÍCH TRŽEB SMLOUVY:", color = AccentNeonCyan, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                Text("Streaming Royalties:", color = Color.LightGray, fontSize = 10.sp)
+                                Text("${streamEarnings.toInt()} Kč", color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                            }
+                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                Text("Prodeje licencí k videoklipu:", color = Color.LightGray, fontSize = 10.sp)
+                                Text("${licenseSales.toInt()} Kč", color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                            }
+                            HorizontalDivider(color = Color(0xFF2C1E55), modifier = Modifier.padding(vertical = 4.dp))
+                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                Text("Celkový měsíční odhad:", color = AccentNeonCyan, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                Text("${estimatedMonTotal.toInt()} Kč", color = AccentNeonCyan, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    }
+                }
+
+                item {
+                    Button(
+                        onClick = {
+                            Toast.makeText(context, "Služba zahájila digitální mastering a odeslala track na schválení partnerům distributora! 🚀", Toast.LENGTH_LONG).show()
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = AccentNeonCyan, contentColor = Color.Black),
+                        shape = RoundedCornerShape(10.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("ZAHÁJIT DISTRIBUCI A PRODEJ LICENCÍ 🚀", fontWeight = FontWeight.Black, fontSize = 11.sp)
+                    }
                 }
             }
         } else {
+            // Filter the items list based on selected tab and search query
+            val filteredItems = items.filter { item ->
+                // Category filter
+                val matchesCategory = when (selectedCategory) {
+                    1 -> !item.isCommunityPublished
+                    2 -> item.isCommunityPublished
+                    else -> true
+                }
+
+                // Search query filter
+                val matchesSearch = if (searchQuery.isBlank()) {
+                    true
+                } else {
+                    item.name.contains(searchQuery, ignoreCase = true) ||
+                            item.description.contains(searchQuery, ignoreCase = true) ||
+                            item.type.contains(searchQuery, ignoreCase = true) ||
+                            (item.tags ?: "").contains(searchQuery, ignoreCase = true)
+                }
+
+                matchesCategory && matchesSearch
+            }
+
+            if (filteredItems.isEmpty()) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text("Nebyly nalezeny žádné nahrávky splňující filtry.", color = Color.Gray, fontSize = 12.sp)
+                    }
+                }
+            } else {
             LazyColumn(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -4543,6 +5720,7 @@ fun MarketplaceTab(
             }
         }
     }
+}
 }
 
 @Composable
