@@ -53,5 +53,6 @@ data class AudioTrack(
     val compRatio: Float = 2.0f,
     val reverbEnabled: Boolean = false,
     val reverbWet: Float = 0.3f,
-    val reverbFeedback: Float = 0.5f
+    val reverbFeedback: Float = 0.5f,
+    val startOffsetMs: Long = 0L
 )

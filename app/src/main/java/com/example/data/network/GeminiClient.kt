@@ -100,9 +100,10 @@ object GeminiClient {
 
         // Try standard modern allowed models in priority order. If one fails, try the next fallback.
         val models = listOf(
-            "gemini-3.5-flash",
-            "gemini-3.1-flash-lite-preview",
-            "gemini-flash-latest"
+            "gemini-2.5-flash",
+            "gemini-2.0-flash",
+            "gemini-1.5-flash",
+            "gemini-1.5-pro"
         )
         var lastException: Exception? = null
 

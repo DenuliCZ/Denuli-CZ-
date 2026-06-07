@@ -63,6 +63,8 @@ import java.io.File
 import kotlin.math.PI
 import kotlin.math.sin
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -139,6 +141,7 @@ fun SparkStudioApp(
     val activeProject by viewModel.activeProject.collectAsStateWithLifecycle()
     val currentLang by TranslationUtility.currentLanguage.collectAsStateWithLifecycle()
     val userCredits by viewModel.userCredits.collectAsStateWithLifecycle()
+    var showSettingsDialog by remember { mutableStateOf(false) }
 
     Column(
         modifier = Modifier
@@ -238,6 +241,23 @@ fun SparkStudioApp(
                     color = Color.White,
                     fontWeight = FontWeight.SemiBold
                 )
+
+                Spacer(modifier = Modifier.width(8.dp))
+
+                // Settings gear button
+                IconButton(
+                    onClick = { showSettingsDialog = true },
+                    modifier = Modifier
+                        .testTag("top_settings_gear_btn")
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(Color(0xFF261D45))
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Settings,
+                        contentDescription = "Nastavení",
+                        tint = AccentNeonCyan
+                    )
+                }
             }
         }
 
@@ -368,7 +388,249 @@ fun SparkStudioApp(
                 )
             }
         }
+
+        if (showSettingsDialog) {
+            SettingsDialog(
+                onDismiss = { showSettingsDialog = false }
+            )
+        }
     }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun SettingsDialog(
+    onDismiss: () -> Unit
+) {
+    val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
+    var apiKeyInput by remember { mutableStateOf(com.example.data.network.GeminiClient.customApiKey) }
+    var passwordVisible by remember { mutableStateOf(false) }
+    var isTestingConnection by remember { mutableStateOf(false) }
+    var testResult by remember { mutableStateOf<String?>(null) }
+    var isTestSuccess by remember { mutableStateOf<Boolean?>(null) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Settings,
+                    contentDescription = "Nastavení",
+                    tint = AccentNeonCyan,
+                    modifier = Modifier.size(24.dp)
+                )
+                Text(
+                    text = "NASTAVENÍ A BEZPEČNOST 🔒",
+                    color = Color.White,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 16.sp
+                )
+            }
+        },
+        text = {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                // Info block
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFF130D26)),
+                    border = BorderStroke(1.dp, Color(0xFF2E1A5E)),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Column(modifier = Modifier.padding(12.dp)) {
+                        Text(
+                            text = "Klíče prostředí (Environment)",
+                            color = AccentNeonCyan,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Text(
+                            text = "Zabezpečený klíč GEMINI_API_KEY slouží k pohánění veškeré umělé inteligence v aplikaci (složení textů, generování scény, chat atd.). Pokud je nastaven, aplikace komunikuje přímo s moderními servery Google Gemini v reálném čase.",
+                            color = Color.LightGray,
+                            fontSize = 11.sp,
+                            lineHeight = 15.sp
+                        )
+                    }
+                }
+
+                // API Key Field Box
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text(
+                        text = "VÁŠ GEMINI_API_KEY",
+                        color = Color.White,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    OutlinedTextField(
+                        value = apiKeyInput,
+                        onValueChange = {
+                            apiKeyInput = it
+                            testResult = null
+                            isTestSuccess = null
+                        },
+                        placeholder = { Text("AIzaSy...", color = Color.Gray, fontSize = 12.sp) },
+                        singleLine = true,
+                        visualTransformation = if (passwordVisible) androidx.compose.ui.text.input.VisualTransformation.None else androidx.compose.ui.text.input.PasswordVisualTransformation(),
+                        trailingIcon = {
+                            IconButton(onClick = { passwordVisible = !passwordVisible }) {
+                                Icon(
+                                    imageVector = if (passwordVisible) Icons.Default.Edit else Icons.Default.Lock,
+                                    contentDescription = if (passwordVisible) "Skrýt" else "Zobrazit",
+                                    tint = AccentNeonCyan
+                                )
+                            }
+                        },
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedTextColor = Color.White,
+                            unfocusedTextColor = Color.White,
+                            focusedBorderColor = AccentNeonCyan,
+                            unfocusedBorderColor = Color(0xFF251A4D)
+                        ),
+                        modifier = Modifier.fillMaxWidth().testTag("settings_api_key_field")
+                    )
+                }
+
+                // Testing block / Connection state indicator
+                if (testResult != null) {
+                    Card(
+                        colors = CardDefaults.cardColors(
+                            containerColor = if (isTestSuccess == true) Color(0xFF0C2417) else Color(0xFF240C12)
+                        ),
+                        border = BorderStroke(1.dp, if (isTestSuccess == true) Color(0xFF00FFC2) else Color(0xFFFF5252)),
+                        shape = RoundedCornerShape(10.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(10.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Text(
+                                text = if (isTestSuccess == true) "✅" else "❌",
+                                fontSize = 16.sp
+                            )
+                            Text(
+                                text = testResult ?: "",
+                                color = Color.White,
+                                fontSize = 11.sp,
+                                lineHeight = 14.sp,
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+                    }
+                }
+
+                // Actions Layout
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    // Save key locally
+                    Button(
+                        onClick = {
+                            val p = context.getSharedPreferences("spark_settings", android.content.Context.MODE_PRIVATE)
+                            p.edit().putString("gemini_key", apiKeyInput.trim()).apply()
+                            com.example.data.network.GeminiClient.customApiKey = apiKeyInput.trim()
+                            Toast.makeText(context, "Klíč byl uložen do prostředí aplikace! 💾", Toast.LENGTH_SHORT).show()
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = AccentNeonCyan),
+                        modifier = Modifier.weight(1f).testTag("settings_save_api_key_btn")
+                    ) {
+                        Text("ULOŽIT KLÍČ 💾", color = Color.Black, fontWeight = FontWeight.Bold, fontSize = 10.sp)
+                    }
+
+                    // Test key function button
+                    Button(
+                        onClick = {
+                            if (apiKeyInput.trim().isBlank()) {
+                                Toast.makeText(context, "Nejprve zadejte API klíč pro otestování", Toast.LENGTH_SHORT).show()
+                                return@Button
+                            }
+                            isTestingConnection = true
+                            testResult = "Právě se připojuji k API serverům..."
+                            isTestSuccess = null
+                            coroutineScope.launch {
+                                try {
+                                    // Set temporarily to test
+                                    val originalKey = com.example.data.network.GeminiClient.customApiKey
+                                    com.example.data.network.GeminiClient.customApiKey = apiKeyInput.trim()
+                                    val response = com.example.data.network.GeminiClient.generateText(
+                                        "Zkontroluj toto spojení. Odpověz pouze jediným slovem: 'OK'."
+                                    )
+                                    isTestingConnection = false
+                                    if (response.contains("OK", ignoreCase = true) || response.isNotBlank()) {
+                                        isTestSuccess = true
+                                        testResult = "Zkouška úspěšná! Spojení se servery Google Gemini funguje bezchybně. 🎉 Odpověď modelu: $response"
+                                        // Save officially since it passed
+                                        val p = context.getSharedPreferences("spark_settings", android.content.Context.MODE_PRIVATE)
+                                        p.edit().putString("gemini_key", apiKeyInput.trim()).apply()
+                                    } else {
+                                        isTestSuccess = false
+                                        testResult = "API klíč vrátil neúplnou odpověď: $response"
+                                        com.example.data.network.GeminiClient.customApiKey = originalKey
+                                    }
+                                } catch (e: Exception) {
+                                    isTestingConnection = false
+                                    isTestSuccess = false
+                                    testResult = "Připojení selhalo: ${e.message}"
+                                }
+                            }
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF261D45)),
+                        enabled = !isTestingConnection,
+                        modifier = Modifier.weight(1f).border(1.dp, Color(0xFF32245C), RoundedCornerShape(100)).testTag("settings_test_api_key_btn")
+                    ) {
+                        if (isTestingConnection) {
+                            CircularProgressIndicator(modifier = Modifier.size(12.dp), strokeWidth = 1.5.dp, color = AccentNeonCyan)
+                        } else {
+                            Text("TEST SPOJENÍ 🔍", color = AccentNeonCyan, fontWeight = FontWeight.Bold, fontSize = 10.sp)
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(4.dp))
+
+                // Explain environment setup alternative
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFF0F0A1F)),
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Column(modifier = Modifier.padding(10.dp)) {
+                        Text(
+                            text = "💡 Doporučená integrace pro Google AI Studio",
+                            color = Color.LightGray,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 11.sp
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = "Klíč můžete rovněž zadat do nativního Secrets panelu (Tajemství) přímo v Google AI Studio (ikona klíče v levé boční liště) pod názvem GEMINI_API_KEY. Náš build systém ho poté automaticky načte jako systémovou proměnnou prostředí při každém sestavení aplikace, což je mnohem bezpečnější pro produkční nasazení.",
+                            color = Color.Gray,
+                            fontSize = 10.sp,
+                            lineHeight = 14.sp
+                        )
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = onDismiss,
+                colors = ButtonDefaults.buttonColors(containerColor = AccentNeonCyan)
+            ) {
+                Text("HOTOVO", color = Color.Black, fontWeight = FontWeight.Bold)
+            }
+        },
+        containerColor = Color(0xFF0C0717),
+        tonalElevation = 6.dp
+    )
 }
 
 // --- ONBOARDING: Age Verification Checkbox ---
@@ -2833,6 +3095,19 @@ fun StudioTab(
                         } else {
                             0f
                         }
+
+                        val timelineClips by viewModel.timelineClips.collectAsStateWithLifecycle()
+                        
+                        com.example.ui.components.InteractiveTimeline(
+                            viewModel = viewModel,
+                            project = proj,
+                            activeTracks = activeTracks,
+                            videoClips = timelineClips,
+                            isPlaying = isPlaying,
+                            globalProgress = globalPlayProgress
+                        )
+
+                        Spacer(modifier = Modifier.height(18.dp))
 
                         // Audio track list
                         if (activeTracks.isEmpty()) {
@@ -5648,12 +5923,17 @@ fun LegalAndProfileTab(
         item {
             var apiKeyInput by remember { mutableStateOf(com.example.data.network.GeminiClient.customApiKey) }
             var isSavedSuccessfully by remember { mutableStateOf(false) }
+            var passwordVisible by remember { mutableStateOf(false) }
+            var isTestingConnection by remember { mutableStateOf(false) }
+            var testResult by remember { mutableStateOf<String?>(null) }
+            var isTestSuccess by remember { mutableStateOf<Boolean?>(null) }
+            val coroutineScope = rememberCoroutineScope()
 
             Card(
                 colors = CardDefaults.cardColors(containerColor = CardBackground),
                 border = BorderStroke(1.dp, Color(0xFF2E1A5E)),
                 shape = RoundedCornerShape(16.dp),
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth().testTag("profile_settings_gemini_card")
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
                     Row(
@@ -5695,37 +5975,129 @@ fun LegalAndProfileTab(
                         onValueChange = { 
                             apiKeyInput = it
                             isSavedSuccessfully = false
+                            testResult = null
+                            isTestSuccess = null
                         },
                         placeholder = { Text("AIzaSy...", color = Color.Gray, fontSize = 12.sp) },
                         singleLine = true,
+                        visualTransformation = if (passwordVisible) androidx.compose.ui.text.input.VisualTransformation.None else androidx.compose.ui.text.input.PasswordVisualTransformation(),
+                        trailingIcon = {
+                            IconButton(onClick = { passwordVisible = !passwordVisible }) {
+                                Icon(
+                                    imageVector = if (passwordVisible) Icons.Default.Edit else Icons.Default.Lock,
+                                    contentDescription = if (passwordVisible) "Skrýt" else "Zobrazit",
+                                    tint = AccentNeonCyan
+                                )
+                            }
+                        },
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedTextColor = Color.White,
                             unfocusedTextColor = Color.White,
                             focusedBorderColor = AccentNeonCyan,
                             unfocusedBorderColor = Color(0xFF251A4D)
                         ),
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier.fillMaxWidth().testTag("profile_gemini_api_key_field")
                     )
 
                     Spacer(modifier = Modifier.height(10.dp))
 
-                    Button(
-                        onClick = {
-                            val p = context.getSharedPreferences("spark_settings", android.content.Context.MODE_PRIVATE)
-                            p.edit().putString("gemini_key", apiKeyInput.trim()).apply()
-                            com.example.data.network.GeminiClient.customApiKey = apiKeyInput.trim()
-                            isSavedSuccessfully = true
-                            Toast.makeText(context, "Klíč byl úspěšně uložen k vám do paměti zařízení! 🎉", Toast.LENGTH_SHORT).show()
-                        },
-                        colors = ButtonDefaults.buttonColors(containerColor = if (isSavedSuccessfully) Color(0xFF00C750) else AccentNeonCyan),
-                        modifier = Modifier.fillMaxWidth()
+                    if (testResult != null) {
+                        Card(
+                            colors = CardDefaults.cardColors(
+                                containerColor = if (isTestSuccess == true) Color(0xFF0C2417) else Color(0xFF240C12)
+                            ),
+                            border = BorderStroke(1.dp, if (isTestSuccess == true) Color(0xFF00FFC2) else Color(0xFFFF5252)),
+                            shape = RoundedCornerShape(10.dp),
+                            modifier = Modifier.fillMaxWidth().padding(bottom = 10.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(10.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Text(
+                                    text = if (isTestSuccess == true) "✅" else "❌",
+                                    fontSize = 16.sp
+                                )
+                                Text(
+                                    text = testResult ?: "",
+                                    color = Color.White,
+                                    fontSize = 11.sp,
+                                    lineHeight = 14.sp,
+                                    modifier = Modifier.weight(1f)
+                                )
+                            }
+                        }
+                    }
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        Text(
-                            text = if (isSavedSuccessfully) "KLÍČ ULOŽEN V POŘÁDKU! ✅" else "ULOŽIT GEMINI KLÍČ DO TELEFONU 💾",
-                            color = Color.Black,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 11.sp
-                        )
+                        Button(
+                            onClick = {
+                                val p = context.getSharedPreferences("spark_settings", android.content.Context.MODE_PRIVATE)
+                                p.edit().putString("gemini_key", apiKeyInput.trim()).apply()
+                                com.example.data.network.GeminiClient.customApiKey = apiKeyInput.trim()
+                                isSavedSuccessfully = true
+                                Toast.makeText(context, "Klíč byl uložen do prostředí aplikace! 💾", Toast.LENGTH_SHORT).show()
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = if (isSavedSuccessfully) Color(0xFF00C750) else AccentNeonCyan),
+                            modifier = Modifier.weight(1f).testTag("profile_save_api_key_btn")
+                        ) {
+                            Text(
+                                text = if (isSavedSuccessfully) "ULOŽENO! ✅" else "ULOŽIT KLÍČ 💾",
+                                color = Color.Black,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 11.sp
+                            )
+                        }
+
+                        Button(
+                            onClick = {
+                                if (apiKeyInput.trim().isBlank()) {
+                                    Toast.makeText(context, "Nejprve zadejte API klíč", Toast.LENGTH_SHORT).show()
+                                    return@Button
+                                }
+                                isTestingConnection = true
+                                testResult = "Zkouším spojení s Google Gemini API..."
+                                isTestSuccess = null
+                                coroutineScope.launch {
+                                    try {
+                                        val originalKey = com.example.data.network.GeminiClient.customApiKey
+                                        com.example.data.network.GeminiClient.customApiKey = apiKeyInput.trim()
+                                        val response = com.example.data.network.GeminiClient.generateText(
+                                            "Zkontroluj toto spojení. Odpověz pouze jediným slovem: 'OK'."
+                                        )
+                                        isTestingConnection = false
+                                        if (response.contains("OK", ignoreCase = true) || response.isNotBlank()) {
+                                            isTestSuccess = true
+                                            testResult = "Zkouška úspěšná! Spojení funguje. 🎉 Odpověď: $response"
+                                            val p = context.getSharedPreferences("spark_settings", android.content.Context.MODE_PRIVATE)
+                                            p.edit().putString("gemini_key", apiKeyInput.trim()).apply()
+                                            isSavedSuccessfully = true
+                                        } else {
+                                            isTestSuccess = false
+                                            testResult = "Klíč nevrátil správný tvar odpovědi."
+                                            com.example.data.network.GeminiClient.customApiKey = originalKey
+                                        }
+                                    } catch (e: Exception) {
+                                        isTestingConnection = false
+                                        isTestSuccess = false
+                                        testResult = "Chyba testu: ${e.message}"
+                                    }
+                                }
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF261D45)),
+                            enabled = !isTestingConnection,
+                            modifier = Modifier.weight(1f).border(1.dp, Color(0xFF32245C), RoundedCornerShape(100)).testTag("profile_test_api_key_btn")
+                        ) {
+                            if (isTestingConnection) {
+                                CircularProgressIndicator(modifier = Modifier.size(12.dp), strokeWidth = 1.5.dp, color = AccentNeonCyan)
+                            } else {
+                                Text("TEST SPOJENÍ 🔍", color = AccentNeonCyan, fontWeight = FontWeight.Bold, fontSize = 11.sp)
+                            }
+                        }
                     }
                 }
             }

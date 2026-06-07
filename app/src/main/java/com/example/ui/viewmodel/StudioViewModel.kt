@@ -333,6 +333,13 @@ class StudioViewModel(private val repository: StudioRepository) : ViewModel() {
         }
     }
 
+    fun updateTrackStartOffset(track: AudioTrack, offsetMs: Long) {
+        viewModelScope.launch {
+            val updated = track.copy(startOffsetMs = offsetMs)
+            repository.updateTrack(updated)
+        }
+    }
+
     fun updateTrackEffects(
         track: AudioTrack,
         eqLow: Float,
@@ -479,11 +486,19 @@ class StudioViewModel(private val repository: StudioRepository) : ViewModel() {
 
             if (activeMediaPlayers.isNotEmpty()) {
                 _isPlaying.value = true
-                activeMediaPlayers.values.forEach {
-                    try {
-                        it.start()
-                    } catch (e: Exception) {
-                        Log.e(TAG, "Chyba spuštění stopy: ${e.message}")
+                tracksToPlay.forEach { track ->
+                    val player = activeMediaPlayers[track.trackId] ?: return@forEach
+                    viewModelScope.launch {
+                        if (track.startOffsetMs > 0) {
+                            kotlinx.coroutines.delay(track.startOffsetMs)
+                        }
+                        if (_isPlaying.value) {
+                            try {
+                                player.start()
+                            } catch (e: Exception) {
+                                Log.e(TAG, "Chyba spuštění stopy: ${e.message}")
+                            }
+                        }
                     }
                 }
             } else {

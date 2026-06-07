@@ -1936,13 +1936,20 @@ object ExportFileHelper {
             throw IllegalStateException("Nepodařilo se úspěšně dekódovat žádnou zvukovou srpávnou stopu.")
         }
 
-        val maxLength = trackPcms.maxOf { it.size }
+        val trackOffsetSamples = eligibleTracks.map { track ->
+            ((track.startOffsetMs / 1000.0) * sampleRate).toInt()
+        }
+
+        val maxLength = trackPcms.mapIndexed { idx, pcm -> pcm.size + trackOffsetSamples[idx] }.maxOrNull() ?: 0
         val mixedSamples = IntArray(maxLength)
 
         trackPcms.forEachIndexed { trackIdx, pcm ->
             val vol = volumes[trackIdx]
+            val offset = trackOffsetSamples[trackIdx]
             for (i in pcm.indices) {
-                mixedSamples[i] += (pcm[i] * vol).toInt()
+                if (offset + i < maxLength) {
+                    mixedSamples[offset + i] += (pcm[i] * vol).toInt()
+                }
             }
         }
 
