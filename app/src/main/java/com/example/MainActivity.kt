@@ -1150,6 +1150,9 @@ fun StudioTab(
     val isExportingProject by viewModel.isExportingProject.collectAsStateWithLifecycle()
     val exportProjectProgress by viewModel.exportProjectProgress.collectAsStateWithLifecycle()
 
+    val canUndo by viewModel.canUndo.collectAsStateWithLifecycle()
+    val canRedo by viewModel.canRedo.collectAsStateWithLifecycle()
+
     val isGeneratingCompleteSong by viewModel.isGeneratingCompleteSong.collectAsStateWithLifecycle()
     val completeSongProgress by viewModel.completeSongProgress.collectAsStateWithLifecycle()
     val userCredits by viewModel.userCredits.collectAsStateWithLifecycle()
@@ -3046,12 +3049,40 @@ fun StudioTab(
                             
                             var isAddTrackDialogOpen by remember { mutableStateOf(false) }
                             
-                            IconButton(onClick = { isAddTrackDialogOpen = true }) {
-                                Icon(
-                                    imageVector = Icons.Default.Add,
-                                    contentDescription = "Přidat stopu",
-                                    tint = AccentNeonCyan
-                                )
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                IconButton(
+                                    onClick = { viewModel.undo() },
+                                    enabled = canUndo,
+                                    modifier = Modifier.testTag("multi_track_undo_btn")
+                                ) {
+                                    Text(
+                                        text = "↩️",
+                                        fontSize = 18.sp,
+                                        color = if (canUndo) AccentNeonCyan else Color.Gray.copy(alpha = 0.5f)
+                                    )
+                                }
+
+                                IconButton(
+                                    onClick = { viewModel.redo() },
+                                    enabled = canRedo,
+                                    modifier = Modifier.testTag("multi_track_redo_btn")
+                                ) {
+                                    Text(
+                                        text = "↪️",
+                                        fontSize = 18.sp,
+                                        color = if (canRedo) AccentNeonCyan else Color.Gray.copy(alpha = 0.5f)
+                                    )
+                                }
+
+                                Spacer(modifier = Modifier.width(4.dp))
+
+                                IconButton(onClick = { isAddTrackDialogOpen = true }) {
+                                    Icon(
+                                        imageVector = Icons.Default.Add,
+                                        contentDescription = "Přidat stopu",
+                                        tint = AccentNeonCyan
+                                    )
+                                }
                             }
 
                             if (isAddTrackDialogOpen) {

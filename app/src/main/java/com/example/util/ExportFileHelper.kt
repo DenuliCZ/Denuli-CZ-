@@ -2026,6 +2026,42 @@ object ExportFileHelper {
         return null
     }
 
+    fun saveMp4ToDownloads(context: Context, srcFile: File, title: String): File? {
+        try {
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+                val resolver = context.contentResolver
+                val contentValues = android.content.ContentValues().apply {
+                    put(android.provider.MediaStore.MediaColumns.DISPLAY_NAME, "$title.mp4")
+                    put(android.provider.MediaStore.MediaColumns.MIME_TYPE, "video/mp4")
+                    put(android.provider.MediaStore.MediaColumns.RELATIVE_PATH, android.os.Environment.DIRECTORY_DOWNLOADS)
+                    put(android.provider.MediaStore.MediaColumns.IS_PENDING, 1)
+                }
+
+                val uri = resolver.insert(android.provider.MediaStore.Downloads.EXTERNAL_CONTENT_URI, contentValues)
+                if (uri != null) {
+                    resolver.openOutputStream(uri)?.use { outStream ->
+                        srcFile.inputStream().use { inStream ->
+                            inStream.copyTo(outStream)
+                        }
+                    }
+                    contentValues.clear()
+                    contentValues.put(android.provider.MediaStore.MediaColumns.IS_PENDING, 0)
+                    resolver.update(uri, contentValues, null, null)
+                    return srcFile
+                }
+            } else {
+                val downloadsDir = android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOWNLOADS)
+                if (!downloadsDir.exists()) downloadsDir.mkdirs()
+                val destFile = File(downloadsDir, "$title.mp4")
+                srcFile.copyTo(destFile, overwrite = true)
+                return destFile
+            }
+        } catch (e: Exception) {
+            Log.e("saveMp4ToDownloads", "Chyba při ukládání: ${e.message}")
+        }
+        return null
+    }
+
     fun drawTimelineScene(
         canvas: Canvas,
         mood: String,

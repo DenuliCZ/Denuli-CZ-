@@ -118,6 +118,132 @@ class StudioViewModel(private val repository: StudioRepository) : ViewModel() {
     private val _exportProjectProgress = MutableStateFlow(0f)
     val exportProjectProgress: StateFlow<Float> = _exportProjectProgress.asStateFlow()
 
+    // --- Undo / Redo Stacks for multi-track editing ---
+    private val undoStack = java.util.Stack<List<AudioTrack>>()
+    private val redoStack = java.util.Stack<List<AudioTrack>>()
+
+    private val _canUndo = MutableStateFlow(false)
+    val canUndo: StateFlow<Boolean> = _canUndo.asStateFlow()
+
+    private val _canRedo = MutableStateFlow(false)
+    val canRedo: StateFlow<Boolean> = _canRedo.asStateFlow()
+
+    private var lastUndoSaveTime = 0L
+
+    fun pushUndoSnapshot(force: Boolean = false) {
+        val currentTracks = activeProjectTracks.value
+        val now = System.currentTimeMillis()
+        
+        // Debounce continuous changes like rapid slider dragging unless forced
+        if (!force && (now - lastUndoSaveTime < 800L)) {
+            return
+        }
+        
+        val snapshot = currentTracks.map { it.copy() }
+        
+        // Check if snapshot is identical to the top of undoStack to avoid duplicates
+        if (undoStack.isNotEmpty()) {
+            val last = undoStack.peek()
+            if (areTrackListsSame(last, snapshot)) {
+                return
+            }
+        }
+        
+        undoStack.push(snapshot)
+        if (undoStack.size > 50) {
+            undoStack.removeAt(0)
+        }
+        redoStack.clear()
+        _canUndo.value = undoStack.isNotEmpty()
+        _canRedo.value = redoStack.isNotEmpty()
+        lastUndoSaveTime = now
+    }
+
+    private fun areTrackListsSame(list1: List<AudioTrack>, list2: List<AudioTrack>): Boolean {
+        if (list1.size != list2.size) return false
+        for (i in list1.indices) {
+            val t1 = list1[i]
+            val t2 = list2[i]
+            if (t1.trackId != t2.trackId ||
+                t1.projectId != t2.projectId ||
+                t1.name != t2.name ||
+                t1.filePath != t2.filePath ||
+                t1.volume != t2.volume ||
+                t1.isMuted != t2.isMuted ||
+                t1.isSolo != t2.isSolo ||
+                t1.isRecordArmed != t2.isRecordArmed ||
+                t1.trackType != t2.trackType ||
+                t1.midiInstrument != t2.midiInstrument ||
+                t1.midiPattern != t2.midiPattern ||
+                t1.eqLow != t2.eqLow ||
+                t1.eqMid != t2.eqMid ||
+                t1.eqHigh != t2.eqHigh ||
+                t1.compEnabled != t2.compEnabled ||
+                t1.compThreshold != t2.compThreshold ||
+                t1.compRatio != t2.compRatio ||
+                t1.reverbEnabled != t2.reverbEnabled ||
+                t1.reverbWet != t2.reverbWet ||
+                t1.reverbFeedback != t2.reverbFeedback ||
+                t1.startOffsetMs != t2.startOffsetMs) {
+                return false
+            }
+        }
+        return true
+    }
+
+    fun undo() {
+        viewModelScope.launch {
+            if (undoStack.isEmpty()) return@launch
+            val currentTracks = activeProjectTracks.value
+            val currentSnapshot = currentTracks.map { it.copy() }
+            
+            val targetSnapshot = undoStack.pop()
+            redoStack.push(currentSnapshot)
+            
+            applySnapshotToDatabase(currentTracks, targetSnapshot)
+            
+            _canUndo.value = undoStack.isNotEmpty()
+            _canRedo.value = redoStack.isNotEmpty()
+        }
+    }
+
+    fun redo() {
+        viewModelScope.launch {
+            if (redoStack.isEmpty()) return@launch
+            val currentTracks = activeProjectTracks.value
+            val currentSnapshot = currentTracks.map { it.copy() }
+            
+            val targetSnapshot = redoStack.pop()
+            undoStack.push(currentSnapshot)
+            
+            applySnapshotToDatabase(currentTracks, targetSnapshot)
+            
+            _canUndo.value = undoStack.isNotEmpty()
+            _canRedo.value = redoStack.isNotEmpty()
+        }
+    }
+
+    private suspend fun applySnapshotToDatabase(currentTracks: List<AudioTrack>, targetTracks: List<AudioTrack>) {
+        withContext(Dispatchers.IO) {
+            val currentIds = currentTracks.map { it.trackId }.toSet()
+            val targetIds = targetTracks.map { it.trackId }.toSet()
+            
+            for (track in currentTracks) {
+                if (!targetIds.contains(track.trackId)) {
+                    repository.deleteTrack(track)
+                }
+            }
+            
+            for (track in targetTracks) {
+                if (currentIds.contains(track.trackId)) {
+                    repository.updateTrack(track)
+                } else {
+                    repository.insertTrack(track)
+                }
+            }
+        }
+    }
+
     private var mediaPlayer: MediaPlayer? = null
 
     fun initializeOnboarding(context: Context) {
@@ -287,6 +413,10 @@ class StudioViewModel(private val repository: StudioRepository) : ViewModel() {
     fun selectProject(project: Project?, context: Context? = null) {
         stopAudioPlayback()
         _activeProject.value = project
+        undoStack.clear()
+        redoStack.clear()
+        _canUndo.value = false
+        _canRedo.value = false
         if (project != null) {
             initializeDefaultTracksIfNeeded(project.id, project.audioPath, project.backgroundAmbience)
             if (context != null) {
@@ -298,6 +428,7 @@ class StudioViewModel(private val repository: StudioRepository) : ViewModel() {
     }
 
     fun updateTrackVolume(track: AudioTrack, volume: Float) {
+        pushUndoSnapshot(force = false)
         viewModelScope.launch {
             val updated = track.copy(volume = volume)
             repository.updateTrack(updated)
@@ -312,6 +443,7 @@ class StudioViewModel(private val repository: StudioRepository) : ViewModel() {
     }
 
     fun toggleTrackMute(track: AudioTrack) {
+        pushUndoSnapshot(force = true)
         viewModelScope.launch {
             val updated = track.copy(isMuted = !track.isMuted)
             repository.updateTrack(updated)
@@ -327,6 +459,7 @@ class StudioViewModel(private val repository: StudioRepository) : ViewModel() {
     }
 
     fun toggleTrackSolo(track: AudioTrack) {
+        pushUndoSnapshot(force = true)
         viewModelScope.launch {
             val updated = track.copy(isSolo = !track.isSolo)
             repository.updateTrack(updated)
@@ -334,6 +467,7 @@ class StudioViewModel(private val repository: StudioRepository) : ViewModel() {
     }
 
     fun updateTrackStartOffset(track: AudioTrack, offsetMs: Long) {
+        pushUndoSnapshot(force = false)
         viewModelScope.launch {
             val updated = track.copy(startOffsetMs = offsetMs)
             repository.updateTrack(updated)
@@ -352,6 +486,7 @@ class StudioViewModel(private val repository: StudioRepository) : ViewModel() {
         reverbWet: Float,
         reverbFeedback: Float
     ) {
+        pushUndoSnapshot(force = false)
         viewModelScope.launch {
             val updated = track.copy(
                 eqLow = eqLow,
@@ -369,6 +504,7 @@ class StudioViewModel(private val repository: StudioRepository) : ViewModel() {
     }
 
     fun addCustomTrack(projectId: Int, name: String, type: String) {
+        pushUndoSnapshot(force = true)
         viewModelScope.launch {
             val newTrack = AudioTrack(
                 projectId = projectId,
@@ -382,6 +518,7 @@ class StudioViewModel(private val repository: StudioRepository) : ViewModel() {
     }
 
     fun removeTrack(track: AudioTrack) {
+        pushUndoSnapshot(force = true)
         viewModelScope.launch {
             stopAudioPlayback()
             repository.deleteTrack(track)
@@ -548,6 +685,7 @@ class StudioViewModel(private val repository: StudioRepository) : ViewModel() {
 
         tempRecordingFile?.let { file ->
             if (file.exists() && file.length() > 0) {
+                pushUndoSnapshot(force = true)
                 viewModelScope.launch {
                     val tracks = activeProjectTracks.value
                     tracks.find { it.trackId == trackId }?.let { originalTrack ->
@@ -1043,6 +1181,7 @@ class StudioViewModel(private val repository: StudioRepository) : ViewModel() {
 
     fun updateMidiTrackPattern(context: Context, track: AudioTrack, instrument: String, pattern: String) {
         val currentProj = _activeProject.value ?: return
+        pushUndoSnapshot(force = false)
         viewModelScope.launch(Dispatchers.IO) {
             val cacheDir = context.cacheDir
             val filename = "midi_${track.trackId}_${System.currentTimeMillis()}.wav"
@@ -1528,12 +1667,52 @@ class StudioViewModel(private val repository: StudioRepository) : ViewModel() {
 
     fun generateTimelineMP4Video(context: android.content.Context) {
         val current = _activeProject.value ?: return
+        val tracks = activeProjectTracks.value
         viewModelScope.launch {
             _isVideoGenerating.value = true
             _videoProgress.value = 0f
             _videoGenerationError.value = null
 
             try {
+                // 1. Prepare and mix audio tracks first if they exist on the timeline
+                val audioFile = if (tracks.isNotEmpty()) {
+                    val processedTracks = withContext(Dispatchers.IO) {
+                        tracks.map { track ->
+                            if (track.trackType == "MIDI" && (track.filePath.isNullOrEmpty() || !File(track.filePath).exists())) {
+                                val cacheDir = context.cacheDir
+                                val file = File(cacheDir, "midi_${track.trackId}_synth.wav")
+                                try {
+                                    com.example.util.MidiSynthesizer.synthesizeMidiToWav(
+                                        instrument = track.midiInstrument ?: "Sine Lead",
+                                        patternStr = track.midiPattern ?: "",
+                                        outputFile = file,
+                                        trackDuration = current.trackDuration
+                                    )
+                                } catch (e: Exception) {
+                                    Log.e(TAG, "Failed MIDI synthesis in export: ${e.message}")
+                                }
+                                val updated = track.copy(filePath = file.absolutePath)
+                                repository.updateTrack(updated)
+                                updated
+                            } else {
+                                track
+                            }
+                        }
+                    }
+
+                    val cacheDir = context.cacheDir
+                    val mixedWavFile = File(cacheDir, "spark_temp_mixed_${System.currentTimeMillis()}.wav")
+                    ExportFileHelper.mixActiveTracksToWav(context, processedTracks, mixedWavFile) { progress ->
+                        _videoProgress.value = progress * 0.25f
+                    }
+                    mixedWavFile
+                } else if (!current.audioPath.isNullOrEmpty() && java.io.File(current.audioPath).exists()) {
+                    java.io.File(current.audioPath)
+                } else {
+                    com.example.util.ExportFileHelper.generateRealAudioTrack(context, current.genre, 15, current.bpm) {}
+                }
+
+                // 2. Prepare visual clips JSON
                 val root = org.json.JSONObject()
                 val clipsArr = org.json.JSONArray()
                 for (clip in _timelineClips.value) {
@@ -1560,25 +1739,49 @@ class StudioViewModel(private val repository: StudioRepository) : ViewModel() {
 
                 val timelineJson = root.toString()
 
-                val audioFile = if (!current.audioPath.isNullOrEmpty() && java.io.File(current.audioPath).exists()) {
-                    java.io.File(current.audioPath)
-                } else {
-                    com.example.util.ExportFileHelper.generateRealAudioTrack(context, current.genre, 15, current.bpm) {}
-                }
-
+                // 3. Render and compile the video
                 val targetVideo = com.example.util.ExportFileHelper.generateTimelineVideo(
                     context = context,
                     clipsJson = timelineJson,
                     audioFile = audioFile,
                     onProgress = { progress ->
-                        _videoProgress.value = progress
+                        _videoProgress.value = 0.25f + (progress * 0.70f)
                     }
+                )
+
+                // 4. Save compiled video to Downloads folder so it's fully downloadable/accessible!
+                val cleanTitle = current.title.replace("\\s+".toRegex(), "_")
+                val finalSavedVideo = ExportFileHelper.saveMp4ToDownloads(
+                    context = context,
+                    srcFile = targetVideo,
+                    title = "Spark_Studio_Video_$cleanTitle"
                 )
 
                 val updated = current.copy(videoPath = targetVideo.absolutePath)
                 repository.insertProject(updated)
                 _activeProject.value = updated
                 _videoGenerationError.value = null
+
+                _videoProgress.value = 1.0f
+
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(context, "Složené video bylo úspěšně staženo a uloženo do složky Stažené soubory! 🎉", Toast.LENGTH_LONG).show()
+
+                    // Trigger share intent so it opens and lets the user choose how to save/use it
+                    try {
+                        val fileToShare = finalSavedVideo ?: targetVideo
+                        val authority = "${context.packageName}.fileprovider"
+                        val contentUri = androidx.core.content.FileProvider.getUriForFile(context, authority, fileToShare)
+                        val shareIntent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+                            type = "video/mp4"
+                            putExtra(android.content.Intent.EXTRA_STREAM, contentUri)
+                            addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                        }
+                        context.startActivity(android.content.Intent.createChooser(shareIntent, "Sdílet nebo uložit zkompilované video"))
+                    } catch (ex: Exception) {
+                        Log.e("generateTimelineMP4Video", "Nepodařilo se spustit sdílení: ${ex.message}")
+                    }
+                }
             } catch (e: Exception) {
                 _videoGenerationError.value = e.message ?: "Neznámá chyba při skládání časové osy"
             } finally {
