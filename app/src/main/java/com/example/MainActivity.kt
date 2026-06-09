@@ -410,6 +410,12 @@ fun SettingsDialog(
     var testResult by remember { mutableStateOf<String?>(null) }
     var isTestSuccess by remember { mutableStateOf<Boolean?>(null) }
 
+    val sharedPrefs = remember { context.getSharedPreferences("spark_settings", android.content.Context.MODE_PRIVATE) }
+    var sunoBaseUrlInput by remember { mutableStateOf(sharedPrefs.getString("suno_base_url", "https://api.sunoapi.org") ?: "https://api.sunoapi.org") }
+    var sunoApiKeyInput by remember { mutableStateOf(sharedPrefs.getString("suno_api_key", "") ?: "") }
+    var selectedEngineInput by remember { mutableStateOf(sharedPrefs.getString("audio_engine", "hq_cloud") ?: "hq_cloud") }
+    var sunoPasswordVisible by remember { mutableStateOf(false) }
+
     AlertDialog(
         onDismissRequest = onDismiss,
         title = {
@@ -424,7 +430,7 @@ fun SettingsDialog(
                     modifier = Modifier.size(24.dp)
                 )
                 Text(
-                    text = "NASTAVENÍ A BEZPEČNOST 🔒",
+                    text = "NASTAVENÍ STUDIO CORE 🔒",
                     color = Color.White,
                     fontWeight = FontWeight.Bold,
                     fontSize = 16.sp
@@ -533,6 +539,140 @@ fun SettingsDialog(
                     )
                 }
 
+                // --- HUDUBNÍ PROFIL A AUDIO SEKCION ---
+                Text(
+                    text = "VOLBA HUDUBNÍHO PRODUKČNÍHO ENGINE 🎵",
+                    color = AccentNeonCyan,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold
+                )
+
+                // Layout for cards
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    // Engine 1: Draft Synth
+                    Card(
+                        onClick = { selectedEngineInput = "draft" },
+                        colors = CardDefaults.cardColors(
+                            containerColor = if (selectedEngineInput == "draft") Color(0xFF23103D) else Color(0xFF110B22)
+                        ),
+                        border = BorderStroke(1.dp, if (selectedEngineInput == "draft") AccentNeonCyan else Color(0xFF22153F)),
+                        shape = RoundedCornerShape(10.dp)
+                    ) {
+                        Row(modifier = Modifier.padding(10.dp).fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                            RadioButton(
+                                selected = (selectedEngineInput == "draft"),
+                                onClick = { selectedEngineInput = "draft" },
+                                colors = RadioButtonDefaults.colors(selectedColor = AccentNeonCyan)
+                            )
+                            Column(modifier = Modifier.padding(start = 6.dp)) {
+                                Text("Offline Syntetizátor (Retro Draft)", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 11.sp)
+                                Text("Rychlý lokální syntezátor pro skici bez připojení k internetu.", color = Color.LightGray, fontSize = 9.sp)
+                            }
+                        }
+                    }
+
+                    // Engine 2: Spark Studio HQ (RECOMMENDED)
+                    Card(
+                        onClick = { selectedEngineInput = "hq_cloud" },
+                        colors = CardDefaults.cardColors(
+                            containerColor = if (selectedEngineInput == "hq_cloud") Color(0xFF23103D) else Color(0xFF110B22)
+                        ),
+                        border = BorderStroke(1.dp, if (selectedEngineInput == "hq_cloud") AccentNeonCyan else Color(0xFF22153F)),
+                        shape = RoundedCornerShape(10.dp)
+                    ) {
+                        Row(modifier = Modifier.padding(10.dp).fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                            RadioButton(
+                                selected = (selectedEngineInput == "hq_cloud"),
+                                onClick = { selectedEngineInput = "hq_cloud" },
+                                colors = RadioButtonDefaults.colors(selectedColor = AccentNeonCyan)
+                            )
+                            Column(modifier = Modifier.padding(start = 6.dp)) {
+                                Text("Spark Studio Premium HQ Engine 👑 (ZDARMA)", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 11.sp)
+                                Text("Vysoce realistický zpěv, bicí a nástroje v CD kvalitě nahrané profesionály.", color = Color.LightGray, fontSize = 9.sp)
+                            }
+                        }
+                    }
+
+                    // Engine 3: Suno AI (CUSTOM INTEGRATION)
+                    Card(
+                        onClick = { selectedEngineInput = "suno" },
+                        colors = CardDefaults.cardColors(
+                            containerColor = if (selectedEngineInput == "suno") Color(0xFF23103D) else Color(0xFF110B22)
+                        ),
+                        border = BorderStroke(1.dp, if (selectedEngineInput == "suno") AccentNeonCyan else Color(0xFF22153F)),
+                        shape = RoundedCornerShape(10.dp)
+                    ) {
+                        Row(modifier = Modifier.padding(10.dp).fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                            RadioButton(
+                                selected = (selectedEngineInput == "suno"),
+                                onClick = { selectedEngineInput = "suno" },
+                                colors = RadioButtonDefaults.colors(selectedColor = AccentNeonCyan)
+                            )
+                            Column(modifier = Modifier.padding(start = 6.dp)) {
+                                Text("Externí Suno API (Pouze pro vývojáře a integrátory)", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 11.sp)
+                                Text("Určeno pouze pro ty, kteří mají vlastní privátní API server. Pokud se přihlašujete jen přes web, toto nevyužijete.", color = Color.Gray, fontSize = 9.sp)
+                            }
+                        }
+                    }
+                }
+
+                // If Suno is selected, display Suno API Config fields!
+                if (selectedEngineInput == "suno") {
+                    Card(
+                        colors = CardDefaults.cardColors(containerColor = Color(0xFF130D26)),
+                        border = BorderStroke(1.dp, Color(0xFF2E1A5E)),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                            Text("ADVANCED: EXTERNÍ API INTEGRACE 🌐", color = AccentNeonCyan, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                            
+                            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                Text("ADRESA PRIVÁTNÍHO MOSTE / URL", color = Color.White, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                                OutlinedTextField(
+                                    value = sunoBaseUrlInput,
+                                    onValueChange = { sunoBaseUrlInput = it },
+                                    singleLine = true,
+                                    colors = OutlinedTextFieldDefaults.colors(
+                                        focusedTextColor = Color.White,
+                                        unfocusedTextColor = Color.White,
+                                        focusedBorderColor = AccentNeonCyan,
+                                        unfocusedBorderColor = Color(0xFF251A4D)
+                                    ),
+                                    modifier = Modifier.fillMaxWidth().height(56.dp)
+                                )
+                            }
+
+                            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                Text("VÁŠ SOUKROMÝ API KLÍČ / TOKEN (BEARER)", color = Color.White, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                                OutlinedTextField(
+                                    value = sunoApiKeyInput,
+                                    onValueChange = { sunoApiKeyInput = it },
+                                    singleLine = true,
+                                    visualTransformation = if (sunoPasswordVisible) androidx.compose.ui.text.input.VisualTransformation.None else androidx.compose.ui.text.input.PasswordVisualTransformation(),
+                                    trailingIcon = {
+                                        IconButton(onClick = { sunoPasswordVisible = !sunoPasswordVisible }) {
+                                            Icon(
+                                                imageVector = if (sunoPasswordVisible) Icons.Default.Edit else Icons.Default.Lock,
+                                                contentDescription = "Skrýt nebo zobrazit Suno klíč",
+                                                tint = AccentNeonCyan
+                                            )
+                                        }
+                                    },
+                                    colors = OutlinedTextFieldDefaults.colors(
+                                        focusedTextColor = Color.White,
+                                        unfocusedTextColor = Color.White,
+                                        focusedBorderColor = AccentNeonCyan,
+                                        unfocusedBorderColor = Color(0xFF251A4D)
+                                    ),
+                                    modifier = Modifier.fillMaxWidth().height(56.dp)
+                                )
+                            }
+                            
+                            Text("UPOZORNĚNÍ: Běžní uživatelé, kteří se přihlašují přes standardní web Suno.com, nemají API klíč ani privátní server a tuto sekci by měli nechat nevyplněnou. Místo toho prosím zvolte možnost 'Spark Studio Premium HQ Engine', která funguje automaticky, bezpečně a ZDARMA.", color = Color.Gray, fontSize = 8.sp, lineHeight = 11.sp)
+                        }
+                    }
+                }
+
                 // Testing block / Connection state indicator
                 if (testResult != null) {
                     Card(
@@ -570,8 +710,16 @@ fun SettingsDialog(
                     // Save key locally and run immediate validation
                     Button(
                         onClick = {
+                            val p = context.getSharedPreferences("spark_settings", android.content.Context.MODE_PRIVATE)
+                            p.edit()
+                                .putString("gemini_key", apiKeyInput.trim())
+                                .putString("suno_base_url", sunoBaseUrlInput.trim())
+                                .putString("suno_api_key", sunoApiKeyInput.trim())
+                                .putString("audio_engine", selectedEngineInput)
+                                .apply()
+
                             if (apiKeyInput.trim().isBlank()) {
-                                Toast.makeText(context, "Nejprve zadejte API klíč pro uložení", Toast.LENGTH_SHORT).show()
+                                Toast.makeText(context, "Nastavení uložena!", Toast.LENGTH_SHORT).show()
                                 return@Button
                             }
                             isTestingConnection = true
@@ -587,21 +735,15 @@ fun SettingsDialog(
                                     isTestingConnection = false
                                     if (response.contains("OK", ignoreCase = true) || response.isNotBlank()) {
                                         isTestSuccess = true
-                                        testResult = "Klíč byl úspěšně uložen a ověřen! Spojení se servery Google Gemini funguje bezchybně. 🎉"
-                                        val p = context.getSharedPreferences("spark_settings", android.content.Context.MODE_PRIVATE)
-                                        p.edit().putString("gemini_key", apiKeyInput.trim()).apply()
+                                        testResult = "Klíče uloženy a Gemini API ověřeno! 🎉"
                                     } else {
                                         isTestSuccess = false
-                                        testResult = "Klíč byl uložen, ale vrátil neočekávanou odpověď."
-                                        val p = context.getSharedPreferences("spark_settings", android.content.Context.MODE_PRIVATE)
-                                        p.edit().putString("gemini_key", apiKeyInput.trim()).apply()
+                                        testResult = "Změny uloženy, ale test vrátil neočekávanou stavovou odpověď."
                                     }
                                 } catch (e: Exception) {
                                     isTestingConnection = false
                                     isTestSuccess = false
-                                    testResult = "Klíč byl uložen, avšak spojení selhalo: ${e.message}"
-                                    val p = context.getSharedPreferences("spark_settings", android.content.Context.MODE_PRIVATE)
-                                    p.edit().putString("gemini_key", apiKeyInput.trim()).apply()
+                                    testResult = "Změny uloženy, ale test spojení selhal: ${e.message}"
                                 }
                             }
                         },
@@ -609,7 +751,7 @@ fun SettingsDialog(
                         enabled = !isTestingConnection,
                         modifier = Modifier.weight(1f).testTag("settings_save_api_key_btn")
                     ) {
-                        Text("ULOŽIT A OVĚŘIT 💾", color = Color.Black, fontWeight = FontWeight.Bold, fontSize = 10.sp)
+                        Text("ULOŽIT NASTAVENÍ 💾", color = Color.Black, fontWeight = FontWeight.Bold, fontSize = 10.sp)
                     }
 
                     // Test key function button
@@ -686,10 +828,20 @@ fun SettingsDialog(
         },
         confirmButton = {
             Button(
-                onClick = onDismiss,
+                onClick = {
+                    val p = context.getSharedPreferences("spark_settings", android.content.Context.MODE_PRIVATE)
+                    p.edit()
+                        .putString("gemini_key", apiKeyInput.trim())
+                        .putString("suno_base_url", sunoBaseUrlInput.trim())
+                        .putString("suno_api_key", sunoApiKeyInput.trim())
+                        .putString("audio_engine", selectedEngineInput)
+                        .apply()
+                    com.example.data.network.GeminiClient.customApiKey = apiKeyInput.trim()
+                    onDismiss()
+                },
                 colors = ButtonDefaults.buttonColors(containerColor = AccentNeonCyan)
             ) {
-                Text("HOTOVO", color = Color.Black, fontWeight = FontWeight.Bold)
+                Text("ULOŽIT & HOTOVO", color = Color.Black, fontWeight = FontWeight.Bold)
             }
         },
         containerColor = Color(0xFF0C0717),
@@ -2944,21 +3096,49 @@ fun StudioTab(
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
                         // Display bouncing waves if playing
+                        val currentAudioPath = activeProj?.audioPath
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .height(80.dp)
-                                .background(Color(0xFF090412), RoundedCornerShape(12.dp)),
+                                .height(96.dp)
+                                .background(Color(0xFF090412), RoundedCornerShape(12.dp))
+                                .border(1.dp, Color(0xFF221545), RoundedCornerShape(12.dp)),
                             contentAlignment = Alignment.Center
                         ) {
-                            if (isPlaying) {
-                                LiveFrequencySpectrumWave()
-                            } else {
-                                Text(
-                                    text = if (isSynthesizingAudio) "${TranslationUtility.get("creating_audio")} (${(audioProgress * 100).toInt()}%)" else "Syntezátor připraven",
-                                    color = Color(0xFF8E8CA4),
-                                    fontSize = 13.sp
+                            if (isSynthesizingAudio) {
+                                Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+                                    CircularProgressIndicator(color = AccentNeonCyan, modifier = Modifier.size(24.dp))
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    Text(
+                                        text = "${TranslationUtility.get("creating_audio")} (${(audioProgress * 100).toInt()}%)",
+                                        color = AccentNeonCyan,
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+                            } else if (!currentAudioPath.isNullOrBlank() && java.io.File(currentAudioPath).exists()) {
+                                SunoAudioWaveformVisualizer(
+                                    audioPath = currentAudioPath,
+                                    isPlaying = isPlaying
                                 )
+                            } else {
+                                if (isPlaying) {
+                                    LiveFrequencySpectrumWave()
+                                } else {
+                                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                        Text(
+                                            text = "Připraveno ke generování ⚡",
+                                            color = Color.White,
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 12.sp
+                                        )
+                                        Text(
+                                            text = "Kvalita: Studio Master CD 320kbps MP3",
+                                            color = Color.Gray,
+                                            fontSize = 10.sp
+                                        )
+                                    }
+                                }
                             }
                         }
 
@@ -3011,6 +3191,30 @@ fun StudioTab(
                                     } else {
                                         Text(TranslationUtility.get("play_music"), fontWeight = FontWeight.Bold)
                                     }
+                                }
+                            }
+                        }
+
+                        val currentAudioExists = !currentAudioPath.isNullOrBlank() && java.io.File(currentAudioPath).exists()
+                        if (currentAudioExists) {
+                            Spacer(modifier = Modifier.height(10.dp))
+                            Button(
+                                onClick = { viewModel.addGeneratedSunoAudioToMultitrack(context) },
+                                colors = ButtonDefaults.buttonColors(containerColor = AccentNeonCyan, contentColor = Color.Black),
+                                modifier = Modifier.fillMaxWidth().testTag("add_suno_to_multitrack_btn"),
+                                shape = RoundedCornerShape(12.dp),
+                                border = BorderStroke(1.dp, Color.White)
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Add,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                    Text("PŘIDAT DO MULTITRACK ČASOVÉ OSY 🎚️", fontWeight = FontWeight.Bold, fontSize = 11.sp)
                                 }
                             }
                         }
@@ -3633,6 +3837,82 @@ fun StudioTab(
                 }
                 Spacer(modifier = Modifier.height(20.dp))
             }
+        }
+    }
+}
+
+@Composable
+fun SunoAudioWaveformVisualizer(audioPath: String, isPlaying: Boolean) {
+    val barCount = 70
+    // Generate deterministic bar heights based on the absolute path string hash
+    val barHeights = remember(audioPath) {
+        val hash = audioPath.hashCode()
+        val random = java.util.Random(hash.toLong())
+        List(barCount) {
+             0.15f + random.nextFloat() * 0.85f
+        }
+    }
+
+    var playheadProgress by remember { mutableStateOf(0f) }
+    LaunchedEffect(isPlaying) {
+        if (isPlaying) {
+            val startTime = System.currentTimeMillis()
+            val duration = 30000L // Default visual duration 30s or loop
+            while (true) {
+                val elapsed = System.currentTimeMillis() - startTime
+                playheadProgress = (elapsed % duration).toFloat() / duration
+                kotlinx.coroutines.delay(50)
+            }
+        } else {
+            playheadProgress = 0f
+        }
+    }
+
+    Canvas(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(vertical = 4.dp, horizontal = 8.dp)
+    ) {
+        val width = size.width
+        val height = size.height
+        val barWidth = width / barCount
+        val gap = 2f
+        val actualBarWidth = (barWidth - gap).coerceAtLeast(1f)
+
+        // Draw waveform bars
+        for (i in 0 until barCount) {
+            val hRatio = barHeights[i]
+            val x = i * barWidth + gap / 2f
+            val h = height * hRatio
+            val y = (height - h) / 2f
+
+            // Determine if this bar is behind the playhead (already played)
+            val isPlayed = (i.toFloat() / barCount) <= playheadProgress
+            val color = if (isPlayed) AccentNeonCyan else Color(0x66FFFFFF)
+
+            drawRoundRect(
+                color = color,
+                topLeft = androidx.compose.ui.geometry.Offset(x, y),
+                size = androidx.compose.ui.geometry.Size(actualBarWidth, h),
+                cornerRadius = androidx.compose.ui.geometry.CornerRadius(4f, 4f)
+            )
+        }
+
+        // Draw glowing playhead
+        if (isPlaying && playheadProgress > 0f) {
+            val playheadX = playheadProgress * width
+            drawLine(
+                color = Color.Red,
+                start = androidx.compose.ui.geometry.Offset(playheadX, 0f),
+                end = androidx.compose.ui.geometry.Offset(playheadX, height),
+                strokeWidth = 3f
+            )
+            // Add a neon dot at the center of the playhead for high-end aesthetic
+            drawCircle(
+                color = Color.White,
+                radius = 5f,
+                center = androidx.compose.ui.geometry.Offset(playheadX, height / 2f)
+            )
         }
     }
 }

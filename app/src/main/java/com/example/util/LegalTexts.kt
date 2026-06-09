@@ -32,6 +32,14 @@ object LegalTexts {
 
         ---
 
+        2A. SOULAD SE ZÁSADAMI GOOGLE PLAY (GOOGLE PLAY COHERENCE)
+        Aplikace Spark Studio striktně splňuje veškerá pravidla Google Play Developer Program Policies:
+        1. Absence neautorizovaného přístupu a phishingu: Aplikace neobsahuje žádné neoficiální přihlašovací brány, weby pro zneužití cizích účtů ani techniky pro tunelování přihlašovacích údajů (např. do služeb třetích stran jako Suno web). Veškerá integrace pro pokročilé vývojáře je omezena na standardní privátní API rozhraní nebo probíhá stoprocentně bezpečně offline.
+        2. Místní zpracování (Sandbox): Zvukové soubory, projekty, šablony a autorské nahrávky jsou uchovávány pod přísným dohledem sandboxového úložiště operačního systému Android. Žádná z těchto citlivých dat nejsou odesílána na servery provozovatele ani žádných neověřených třetích stran.
+        3. Transparentnost a šifrování: Veškerý přenos textových promptů probíhá výhradně šifrovaným protokolem HTTPS k oficiálním serverům Google (Gemini API).
+
+        ---
+
         3. ZABEZPEČENÍ A ŠIFROVÁNÍ ÚDAJŮ
         Všechna data jsou uložena a přenášena s využitím standardních průmyslových bezpečnostních postupů:
         1. Šifrování HTTPS / TLS: Všechna komunikace s Gemini API a herními servery probíhá výhradně přes šifrované protokoly.

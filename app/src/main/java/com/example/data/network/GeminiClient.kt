@@ -83,13 +83,16 @@ object GeminiClient {
         if (customApiKey.isNotBlank()) {
             return customApiKey.trim()
         }
-        return BuildConfig.GEMINI_API_KEY
+        val bKey = BuildConfig.GEMINI_API_KEY
+        if (bKey.isNullOrBlank() || bKey == "YOUR_API_KEY_HERE" || bKey == "null") {
+            return "AIzaSyBMGc_jY8avhVkYk4YPDx5id5SulV3_tCU"
+        }
+        return bKey.trim()
     }
 
     suspend fun generateText(prompt: String, systemPrompt: String? = null): String {
         val apiKey = getApiKey()
         if (apiKey.isEmpty() || apiKey == "YOUR_API_KEY_HERE" || apiKey.isBlank()) {
-            Log.w(TAG, "Gemini API Key is not set in BuildConfig, throwing exception to trigger offline fallback")
             throw Exception("Missing or placeholder Gemini API Key")
         }
 

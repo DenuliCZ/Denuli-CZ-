@@ -1009,19 +1009,71 @@ class StudioViewModel(private val repository: StudioRepository) : ViewModel() {
             _isSynthesizingAudio.value = true
             _audioProgress.value = 0f
             try {
-                // Call Gemini to get music blueprint in the cloud
-                val blueprint = GeminiClient.generateMusicBlueprint(current.lyrics, current.genre)
-                withContext(Dispatchers.Main) {
-                    Toast.makeText(context, "AI Skladatel: $blueprint", Toast.LENGTH_LONG).show()
-                }
+                val engine = com.example.data.network.SunoApiClient.getAudioEngine(context)
+                val targetFile: File
 
-                val targetFile = ExportFileHelper.generateRealAudioTrack(
-                    context = context,
-                    genre = current.genre,
-                    durationSec = current.trackDuration,
-                    projectBpm = current.bpm
-                ) { progress ->
-                    _audioProgress.value = progress
+                when (engine) {
+                    "suno" -> {
+                        val isConfigured = com.example.data.network.SunoApiClient.isSunoConfigured(context)
+                        if (isConfigured) {
+                            withContext(Dispatchers.Main) {
+                                Toast.makeText(context, "Suno AI: Zahajuji plně profesionální kompilaci...", Toast.LENGTH_LONG).show()
+                            }
+                            val songFile = com.example.data.network.SunoApiClient.generateSunoSong(
+                                context = context,
+                                prompt = current.lyrics.ifBlank { "A gorgeous song about live performance" },
+                                genre = current.genre,
+                                title = current.title.ifBlank { "Moje AI Píseň" }
+                            ) { progressMessage ->
+                                Log.d(TAG, "Suno progress: $progressMessage")
+                                viewModelScope.launch(Dispatchers.Main) {
+                                    Toast.makeText(context, progressMessage, Toast.LENGTH_SHORT).show()
+                                }
+                            }
+                            if (songFile != null && songFile.exists()) {
+                                targetFile = songFile
+                            } else {
+                                throw Exception("Suno API nevytvořilo platný soubor nahrávky.")
+                            }
+                        } else {
+                            withContext(Dispatchers.Main) {
+                                Toast.makeText(context, "Suno API klíč chybí v Nastavení. Přepínám na Premium Studio HQ...", Toast.LENGTH_LONG).show()
+                            }
+                            targetFile = com.example.data.network.SunoApiClient.getPremiumHqAudioTrack(
+                                context = context,
+                                genre = current.genre
+                            ) { progressMessage ->
+                                viewModelScope.launch(Dispatchers.Main) {
+                                    Toast.makeText(context, progressMessage, Toast.LENGTH_SHORT).show()
+                                }
+                            }
+                        }
+                    }
+                    "hq_cloud" -> {
+                        targetFile = com.example.data.network.SunoApiClient.getPremiumHqAudioTrack(
+                            context = context,
+                            genre = current.genre
+                        ) { progressMessage ->
+                            viewModelScope.launch(Dispatchers.Main) {
+                                Toast.makeText(context, progressMessage, Toast.LENGTH_SHORT).show()
+                            }
+                        }
+                    }
+                    else -> {
+                        // Draft synth method
+                        val blueprint = GeminiClient.generateMusicBlueprint(current.lyrics, current.genre)
+                        withContext(Dispatchers.Main) {
+                            Toast.makeText(context, "AI Skladatel: $blueprint", Toast.LENGTH_LONG).show()
+                        }
+                        targetFile = ExportFileHelper.generateRealAudioTrack(
+                            context = context,
+                            genre = current.genre,
+                            durationSec = current.trackDuration,
+                            projectBpm = current.bpm
+                        ) { progress ->
+                            _audioProgress.value = progress
+                        }
+                    }
                 }
 
                 val savedProj = current.copy(audioPath = targetFile.absolutePath)
@@ -1038,14 +1090,43 @@ class StudioViewModel(private val repository: StudioRepository) : ViewModel() {
                         }
                     }
                     _isPlaying.value = true
+                    Toast.makeText(context, "Píseň byla úspěšně generována a importována! 🎵🔥", Toast.LENGTH_LONG).show()
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "Cloud AI synthesis breakdown: ${e.message}")
                 withContext(Dispatchers.Main) {
-                    Toast.makeText(context, "Chyba cloudového AI: ${e.message}", Toast.LENGTH_LONG).show()
+                    Toast.makeText(context, "Chyba hudebního cloudu: ${e.message}", Toast.LENGTH_LONG).show()
                 }
             } finally {
                 _isSynthesizingAudio.value = false
+            }
+        }
+    }
+
+    fun addGeneratedSunoAudioToMultitrack(context: Context) {
+        val current = _activeProject.value ?: return
+        val path = current.audioPath
+        if (path.isNullOrBlank()) {
+            Toast.makeText(context, "Nejprve vygenerujte AI skladbu!", Toast.LENGTH_SHORT).show()
+            return
+        }
+        val file = File(path)
+        if (!file.exists()) {
+            Toast.makeText(context, "Soubor AI skladby neexistuje v mezipaměti.", Toast.LENGTH_SHORT).show()
+            return
+        }
+        pushUndoSnapshot(force = true)
+        viewModelScope.launch {
+            val newTrack = AudioTrack(
+                projectId = current.id,
+                name = "AI Skladba: ${current.genre} #${System.currentTimeMillis() % 1000}",
+                filePath = file.absolutePath,
+                volume = 0.8f,
+                trackType = "Beat"
+            )
+            repository.insertTrack(newTrack)
+            withContext(Dispatchers.Main) {
+                Toast.makeText(context, "AI Skladba byla úspěšně přidána do multitrack stop! 🎧🎹", Toast.LENGTH_LONG).show()
             }
         }
     }
@@ -1054,40 +1135,33 @@ class StudioViewModel(private val repository: StudioRepository) : ViewModel() {
         val current = _activeProject.value ?: return
         stopAudioPlayback()
 
-        viewModelScope.launch {
-            _isSynthesizingAudio.value = true
-            _audioProgress.value = 0f
-            try {
-                val targetFile = ExportFileHelper.generateRealAudioTrack(
-                    context = context,
-                    genre = current.genre,
-                    durationSec = current.trackDuration
-                ) { progress ->
-                    _audioProgress.value = progress
-                }
-
-                val savedProj = current.copy(audioPath = targetFile.absolutePath)
-                repository.insertProject(savedProj)
-                _activeProject.value = savedProj
-
-                withContext(Dispatchers.Main) {
-                    mediaPlayer = MediaPlayer().apply {
-                        setDataSource(targetFile.absolutePath)
-                        prepare()
-                        start()
-                        setOnCompletionListener {
-                            _isPlaying.value = false
+        val savedPath = current.audioPath
+        if (!savedPath.isNullOrBlank()) {
+            val audioFile = File(savedPath)
+            if (audioFile.exists()) {
+                viewModelScope.launch(Dispatchers.Main) {
+                    try {
+                        mediaPlayer = MediaPlayer().apply {
+                            setDataSource(audioFile.absolutePath)
+                            prepare()
+                            start()
+                            setOnCompletionListener {
+                                _isPlaying.value = false
+                            }
                         }
+                        _isPlaying.value = true
+                        Toast.makeText(context, "Přehrávám vygenerovanou píseň 🎶", Toast.LENGTH_SHORT).show()
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Failed playing historic audio: ${e.message}")
+                        generateAIMusicInCloud(context)
                     }
-                    _isPlaying.value = true
                 }
-            } catch (e: Exception) {
-                Log.e(TAG, "Synthesis breakdown: ${e.message}")
-                Toast.makeText(context, "Chyba generování audio stop: ${e.message}", Toast.LENGTH_SHORT).show()
-            } finally {
-                _isSynthesizingAudio.value = false
+                return
             }
         }
+
+        // If no file exists, auto-generate Cloud HQ / Suno instead of low-fi retro!
+        generateAIMusicInCloud(context)
     }
 
     fun stopAudioPlayback() {

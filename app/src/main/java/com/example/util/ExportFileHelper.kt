@@ -273,22 +273,36 @@ object ExportFileHelper {
                 }
                 sampleVal += bassOsc * 0.28
 
-                // D. Layer 4: Lead solo and arpeggio
+                // D. Layer 4: Lead solo and arpeggio (Professional syncopated melodies)
                 val stepTime = beatDurationSec / 2.0
                 val noteStep = (t / stepTime).toInt() % 8
-                val scale = when (barIndex) {
-                    0 -> doubleArrayOf(220.0, 246.94, 261.63, 293.66, 329.63, 349.23, 392.00, 440.0) // A minor
-                    else -> doubleArrayOf(196.00, 220.00, 246.94, 261.63, 293.66, 329.63, 392.00, 523.25)
+                val leadFreq = when (barIndex) {
+                    0 -> { // A minor chord: Elegant, deep rising-falling theme
+                        val notes = doubleArrayOf(440.0, 659.25, 587.33, 659.25, 783.99, 659.25, 523.25, 440.0)
+                        notes[noteStep % notes.size]
+                    }
+                    1 -> { // E minor chord: Sombre, walking minor melody
+                        val notes = doubleArrayOf(392.0, 493.88, 440.0, 493.88, 659.25, 493.88, 392.0, 329.63)
+                        notes[noteStep % notes.size]
+                    }
+                    2 -> { // G major chord: Uplifting, soaring theme
+                        val notes = doubleArrayOf(392.0, 587.33, 523.25, 587.33, 783.99, 587.33, 493.88, 392.0)
+                        notes[noteStep % notes.size]
+                    }
+                    3 -> { // D major chord: Majestic climax resolving back to A minor
+                        val notes = doubleArrayOf(440.0, 739.99, 587.33, 739.99, 880.0, 739.99, 587.33, 440.0)
+                        notes[noteStep % notes.size]
+                    }
+                    else -> 440.0
                 }
-                val leadFreq = scale[noteStep] * 2.0
 
                 var leadOsc = sin(2 * PI * leadFreq * t)
                 when (genre.lowercase()) {
                     "pop", "edm" -> {
                         // Vibrant detuned synthesizer leads
-                        leadOsc = if (leadOsc > 0) 0.6 else -0.6
+                        leadOsc = if (leadOsc > 0) 0.5 else -0.5
                         val popLfo = sin(2 * PI * 6.5 * t)
-                        leadOsc *= (0.7 + 0.3 * popLfo)
+                        leadOsc *= (0.75 + 0.25 * popLfo)
                     }
                     "synthwave" -> {
                         // Analog arpeggiator patterns climbing fast
@@ -303,22 +317,23 @@ object ExportFileHelper {
                         }
                         leadOsc = sin(2 * PI * (arpFreq * 2.0) * t)
                     }
-                    "metal" -> {
+                    "metal", "rock" -> {
                         // Rapid shredding metal guitar solos
                         val metalStep = beatDurationSec / 4.0
                         val soloIndex = (t / metalStep).toInt() % 8
-                        val soloFreq = scale[soloIndex] * 4.0 // High pitch sweep screeching
+                        val soloFreq = leadFreq * 1.5 // High pitch sweep screamer
                         leadOsc = sin(2 * PI * soloFreq * t)
-                        leadOsc = sign(leadOsc) * (1.1 - exp(-4.0 * abs(leadOsc))) // Ultra saturation
+                        leadOsc = sign(leadOsc) * (1.1 - exp(-4.0 * abs(leadOsc))) // Ultra saturation distortion
                     }
-                    "lo-fi" -> {
-                        // Muted moody arpeggio
-                        leadOsc = sin(2 * PI * leadFreq * t) * (0.5 + 0.3 * sin(2 * PI * 1.5 * t))
+                    "lo-fi", "cinematic" -> {
+                        // Muted moody arpeggio with warm vibraphone tremolo
+                        val vibrato = 1.0 + 0.08 * sin(2 * PI * 4.5 * t)
+                        leadOsc = sin(2 * PI * (leadFreq * vibrato) * t) * (0.65 + 0.35 * sin(2 * PI * 1.5 * t))
                     }
                 }
 
-                val leadEnvelope = exp(-4.5 * (t % stepTime))
-                sampleVal += leadOsc * leadEnvelope * 0.16
+                val leadEnvelope = exp(-3.8 * (t % stepTime))
+                sampleVal += leadOsc * leadEnvelope * 0.18
 
                 // Master gain and hard limiting clipper to avoid digital noise clipping
                 var finalSample = sampleVal * 0.72
