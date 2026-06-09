@@ -49,4 +49,8 @@ class StudioRepository(private val studioDao: StudioDao) {
     suspend fun purchaseItem(item: MarketplaceItem) {
         studioDao.updateMarketplaceItem(item.copy(isPurchased = true))
     }
+
+    suspend fun updateMarketplaceItem(item: MarketplaceItem) {
+        studioDao.updateMarketplaceItem(item)
+    }
 }

@@ -1719,8 +1719,17 @@ object ExportFileHelper {
         }
         muxer.release()
 
-        Log.d(TAG, "Video successfully generated: ${videoFile.absolutePath}")
-        videoFile
+        Log.d(TAG, "Video track successfully generated: ${videoFile.absolutePath}")
+        
+        val finalVideoFile = File(cacheDir, "spark_completed_lyric_${System.currentTimeMillis()}.mp4")
+        try {
+            mixAudioIntoVideo(videoFile, audioFile, finalVideoFile)
+            videoFile.delete()
+            finalVideoFile
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to mix audio into lyric video: ${e.message}", e)
+            videoFile
+        }
     }
 
     private fun intToByteArray(value: Int): ByteArray {
@@ -2726,7 +2735,201 @@ object ExportFileHelper {
 
         Log.d("ExportFileHelper", "Timeline video successfully generated: ${videoFile.absolutePath}")
         onProgress(1.0f)
-        videoFile
+        
+        val finalVideoFile = File(cacheDir, "spark_completed_timeline_${System.currentTimeMillis()}.mp4")
+        try {
+            mixAudioIntoVideo(videoFile, audioFile, finalVideoFile)
+            videoFile.delete()
+            finalVideoFile
+        } catch (e: Exception) {
+            Log.e("ExportFileHelper", "Failed to mix audio into timeline video, returning silent: ${e.message}", e)
+            videoFile
+        }
+    }
+
+    private fun mixAudioIntoVideo(videoInput: File, audioInput: File, outputFile: File) {
+        val extractor = android.media.MediaExtractor()
+        try {
+            extractor.setDataSource(videoInput.absolutePath)
+        } catch (e: Exception) {
+            Log.e(TAG, "MediaExtractor setDataSource error: ${e.message}")
+            throw e
+        }
+
+        var videoTrackIdx = -1
+        var videoFormat: MediaFormat? = null
+        for (i in 0 until extractor.trackCount) {
+            val format = extractor.getTrackFormat(i)
+            val mime = format.getString(MediaFormat.KEY_MIME) ?: ""
+            if (mime.startsWith("video/")) {
+                videoTrackIdx = i
+                videoFormat = format
+                break
+            }
+        }
+
+        if (videoTrackIdx == -1 || videoFormat == null) {
+            extractor.release()
+            throw Exception("No video track found in input file")
+        }
+
+        extractor.selectTrack(videoTrackIdx)
+
+        val muxer = MediaMuxer(outputFile.absolutePath, MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4)
+        val outVideoTrackIdx = muxer.addTrack(videoFormat)
+
+        val sampleRate = 22050
+        val channelCount = 1
+        val audioFormat = MediaFormat.createAudioFormat(MediaFormat.MIMETYPE_AUDIO_AAC, sampleRate, channelCount).apply {
+            setInteger(MediaFormat.KEY_AAC_PROFILE, MediaCodecInfo.CodecProfileLevel.AACObjectLC)
+            setInteger(MediaFormat.KEY_BIT_RATE, 64000)
+            setInteger(MediaFormat.KEY_MAX_INPUT_SIZE, 16384)
+        }
+
+        val audioCodec = MediaCodec.createEncoderByType(MediaFormat.MIMETYPE_AUDIO_AAC)
+        audioCodec.configure(audioFormat, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE)
+        audioCodec.start()
+
+        var outAudioTrackIdx = -1
+        var muxerStarted = false
+
+        val audioBytes = if (audioInput.exists()) {
+            val bytes = audioInput.readBytes()
+            if (bytes.size > 44 && bytes[0].toInt() == 'R'.toInt() && bytes[1].toInt() == 'I'.toInt()) {
+                bytes.copyOfRange(44, bytes.size)
+            } else {
+                bytes
+            }
+        } else {
+            ByteArray(0)
+        }
+
+        val bufferInfo = MediaCodec.BufferInfo()
+        var audioEof = false
+        var inputOffset = 0
+
+        var videoEof = false
+        val videoBuffer = ByteBuffer.allocateDirect(1024 * 1024)
+
+        try {
+            while (!videoEof || !audioEof) {
+                if (!audioEof && inputOffset < audioBytes.size) {
+                    val inputBufferIdx = audioCodec.dequeueInputBuffer(5000L)
+                    if (inputBufferIdx >= 0) {
+                        val inputBuffer = audioCodec.getInputBuffer(inputBufferIdx)
+                        if (inputBuffer != null) {
+                            inputBuffer.clear()
+                            val limit = inputBuffer.remaining()
+                            val bytesToCopy = minOf(limit, audioBytes.size - inputOffset)
+                            if (bytesToCopy > 0) {
+                                inputBuffer.put(audioBytes, inputOffset, bytesToCopy)
+                                val pts = (inputOffset / 2) * 1000000L / sampleRate
+                                audioCodec.queueInputBuffer(inputBufferIdx, 0, bytesToCopy, pts, 0)
+                                inputOffset += bytesToCopy
+                            } else {
+                                audioCodec.queueInputBuffer(inputBufferIdx, 0, 0, 0L, MediaCodec.BUFFER_FLAG_END_OF_STREAM)
+                                audioEof = true
+                            }
+                        }
+                    }
+                } else if (!audioEof) {
+                    val inputBufferIdx = audioCodec.dequeueInputBuffer(5000L)
+                    if (inputBufferIdx >= 0) {
+                        audioCodec.queueInputBuffer(inputBufferIdx, 0, 0, 0L, MediaCodec.BUFFER_FLAG_END_OF_STREAM)
+                        audioEof = true
+                    }
+                }
+
+                var outAudioBufferIdx = audioCodec.dequeueOutputBuffer(bufferInfo, 2000L)
+                while (outAudioBufferIdx >= 0 || outAudioBufferIdx == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED) {
+                    if (outAudioBufferIdx == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED) {
+                        if (!muxerStarted) {
+                            outAudioTrackIdx = muxer.addTrack(audioCodec.outputFormat)
+                            muxer.start()
+                            muxerStarted = true
+                        }
+                    } else if (outAudioBufferIdx >= 0) {
+                        val encodedBuffer = audioCodec.getOutputBuffer(outAudioBufferIdx)
+                        if (encodedBuffer != null) {
+                            if ((bufferInfo.flags and MediaCodec.BUFFER_FLAG_CODEC_CONFIG) != 0) {
+                                bufferInfo.size = 0
+                            }
+                            if (bufferInfo.size > 0 && muxerStarted) {
+                                encodedBuffer.position(bufferInfo.offset)
+                                encodedBuffer.limit(bufferInfo.offset + bufferInfo.size)
+                                muxer.writeSampleData(outAudioTrackIdx, encodedBuffer, bufferInfo)
+                            }
+                        }
+                        audioCodec.releaseOutputBuffer(outAudioBufferIdx, false)
+                        if ((bufferInfo.flags and MediaCodec.BUFFER_FLAG_END_OF_STREAM) != 0) {
+                            audioEof = true
+                            break
+                        }
+                    }
+                    outAudioBufferIdx = audioCodec.dequeueOutputBuffer(bufferInfo, 0L)
+                }
+
+                if (muxerStarted && !videoEof) {
+                    videoBuffer.clear()
+                    val sampleSize = extractor.readSampleData(videoBuffer, 0)
+                    if (sampleSize >= 0) {
+                        bufferInfo.offset = 0
+                        bufferInfo.size = sampleSize
+                        bufferInfo.flags = extractor.sampleFlags
+                        bufferInfo.presentationTimeUs = extractor.sampleTime
+                        muxer.writeSampleData(outVideoTrackIdx, videoBuffer, bufferInfo)
+                        extractor.advance()
+                    } else {
+                        videoEof = true
+                    }
+                }
+
+                if (audioEof && !muxerStarted && videoEof) {
+                    break
+                }
+            }
+
+            if (!muxerStarted) {
+                muxer.start()
+                muxerStarted = true
+            }
+
+            while (!videoEof) {
+                videoBuffer.clear()
+                val sampleSize = extractor.readSampleData(videoBuffer, 0)
+                if (sampleSize >= 0) {
+                    bufferInfo.offset = 0
+                    bufferInfo.size = sampleSize
+                    bufferInfo.flags = extractor.sampleFlags
+                    bufferInfo.presentationTimeUs = extractor.sampleTime
+                    muxer.writeSampleData(outVideoTrackIdx, videoBuffer, bufferInfo)
+                    extractor.advance()
+                } else {
+                    videoEof = true
+                }
+            }
+
+        } finally {
+            try {
+                audioCodec.stop()
+                audioCodec.release()
+            } catch (e: Exception) {
+                Log.w(TAG, "Error stopping audioCodec: ${e.message}")
+            }
+            try {
+                extractor.release()
+            } catch (e: Exception) {
+                Log.w(TAG, "Error releasing extractor: ${e.message}")
+            }
+            try {
+                if (muxerStarted) {
+                    muxer.stop()
+                }
+                muxer.release()
+            } catch (e: Exception) {
+                Log.w(TAG, "Error stopping MediaMuxer: ${e.message}")
+            }
+        }
     }
 }
 

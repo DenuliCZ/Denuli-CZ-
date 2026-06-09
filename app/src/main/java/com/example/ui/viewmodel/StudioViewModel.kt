@@ -555,6 +555,52 @@ class StudioViewModel(private val repository: StudioRepository) : ViewModel() {
                         repository.updateTrack(updated)
                     }
                     updated
+                } else if (track.trackType == "Beat" && (track.filePath.isNullOrEmpty() || !File(track.filePath).exists())) {
+                    val file = withContext(Dispatchers.IO) {
+                        try {
+                            com.example.util.ExportFileHelper.generateRealAudioTrack(
+                                context = context,
+                                genre = currentProj.genre,
+                                durationSec = currentProj.trackDuration,
+                                projectBpm = currentProj.bpm
+                            ) { }
+                        } catch (e: Exception) {
+                            Log.e(TAG, "Failed Beat synthesis in play: ${e.message}")
+                            null
+                        }
+                    }
+                    if (file != null && file.exists()) {
+                        val updated = track.copy(filePath = file.absolutePath)
+                        withContext(Dispatchers.IO) {
+                            repository.updateTrack(updated)
+                        }
+                        updated
+                    } else {
+                        track
+                    }
+                } else if (track.trackType == "Ambience" && (track.filePath.isNullOrEmpty() || !File(track.filePath).exists())) {
+                    val file = withContext(Dispatchers.IO) {
+                        try {
+                            com.example.util.ExportFileHelper.generateRealAudioTrack(
+                                context = context,
+                                genre = "cinematic",
+                                durationSec = currentProj.trackDuration,
+                                projectBpm = currentProj.bpm
+                            ) { }
+                        } catch (e: Exception) {
+                            Log.e(TAG, "Failed Ambience synthesis in play: ${e.message}")
+                            null
+                        }
+                    }
+                    if (file != null && file.exists()) {
+                        val updated = track.copy(filePath = file.absolutePath)
+                        withContext(Dispatchers.IO) {
+                            repository.updateTrack(updated)
+                        }
+                        updated
+                    } else {
+                        track
+                    }
                 } else {
                     track
                 }
@@ -1447,30 +1493,72 @@ class StudioViewModel(private val repository: StudioRepository) : ViewModel() {
     val playingCommunityItemId: StateFlow<String?> = _playingCommunityItemId
 
     fun playCommunityItem(context: Context, item: MarketplaceItem) {
-        val audioPath = item.audioPath ?: return
         if (_playingCommunityItemId.value == item.id) {
             stopCommunityItem()
             return
         }
         stopCommunityItem()
-        try {
-            val player = MediaPlayer().apply {
-                setDataSource(audioPath)
-                prepare()
-                start()
-                setOnCompletionListener {
-                    _playingCommunityItemId.value = null
-                    it.release()
-                    if (communityMediaPlayer == this) {
-                        communityMediaPlayer = null
+        _playingCommunityItemId.value = item.id
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                var audioPath = item.audioPath
+                if (audioPath.isNullOrEmpty() || !File(audioPath).exists()) {
+                    withContext(Dispatchers.Main) {
+                        Toast.makeText(context, "Generování předposlechu: ${item.name}...", Toast.LENGTH_SHORT).show()
+                    }
+                    val genre = when {
+                        item.id.contains("synthwave") -> "synthwave"
+                        item.id.contains("lofi") -> "lo-fi"
+                        item.id.contains("metal") -> "metal"
+                        item.id.contains("edm") -> "edm"
+                        item.id.contains("country") -> "country"
+                        item.id.contains("cyberpunk") -> "cinematic"
+                        item.id.contains("zen") -> "cinematic"
+                        else -> "pop"
+                    }
+                    val file = com.example.util.ExportFileHelper.generateRealAudioTrack(
+                        context = context,
+                        genre = genre,
+                        durationSec = item.durationSec.coerceIn(10, 20),
+                        projectBpm = null
+                    ) { }
+                    
+                    audioPath = file.absolutePath
+                    val updatedItem = item.copy(audioPath = audioPath)
+                    repository.updateMarketplaceItem(updatedItem)
+                }
+
+                val finalPath = audioPath ?: return@launch
+                if (_playingCommunityItemId.value != item.id) {
+                    return@launch
+                }
+
+                withContext(Dispatchers.Main) {
+                    try {
+                        val player = MediaPlayer().apply {
+                            setDataSource(finalPath)
+                            prepare()
+                            start()
+                            setOnCompletionListener {
+                                _playingCommunityItemId.value = null
+                                it.release()
+                                if (communityMediaPlayer == this) {
+                                    communityMediaPlayer = null
+                                }
+                            }
+                        }
+                        communityMediaPlayer = player
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Error playing community media player: ${e.message}")
+                        _playingCommunityItemId.value = null
                     }
                 }
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to compile background item asset: ${e.message}")
+                withContext(Dispatchers.Main) {
+                    _playingCommunityItemId.value = null
+                }
             }
-            communityMediaPlayer = player
-            _playingCommunityItemId.value = item.id
-        } catch (e: Exception) {
-            Log.e(TAG, "Error playing community item: ${e.message}")
-            Toast.makeText(context, "Nelze přehrát: ${e.message}", Toast.LENGTH_SHORT).show()
         }
     }
 
