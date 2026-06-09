@@ -1214,6 +1214,162 @@ class StudioViewModel(private val repository: StudioRepository) : ViewModel() {
         }
     }
 
+    fun applyAiIntelligentMix(context: Context) {
+        val currentProj = _activeProject.value ?: return
+        val tracks = activeProjectTracks.value
+        if (tracks.isEmpty()) {
+            Toast.makeText(context, "Žádné stopy k mixování!", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        pushUndoSnapshot(force = true)
+        
+        viewModelScope.launch {
+            Toast.makeText(context, "AI Master Assistant optimalizuje mix podle žánru...", Toast.LENGTH_SHORT).show()
+            
+            val genre = currentProj.genre
+            val tracksDesc = tracks.joinToString("\n") { "- ${it.name} (${it.trackType})" }
+            
+            val prompt = """
+                Navrhni optimální nastavení mixu pro hudební žánr $genre.
+                Máme tyto zvukové stopy:
+                $tracksDesc
+                
+                Vrať pouze čistý JSON ve formátu seznamu bez jakýchkoliv odrážek či vysvětlení.
+                Každý objekt v poli musí obsahovat:
+                "name": přesný název stopy z našeho seznamu
+                "volume": číslo od 0.1 do 1.0
+                "eqHigh": číslo od -8 do +8
+                "eqMid": číslo od -8 do +8
+                "eqLow": číslo od -8 do +8
+                "reverbEnabled": true nebo false
+                "reverbWet": číslo od 0.1 do 0.8
+                
+                Příklad:
+                [
+                  {"name": "Hlavní zpěv (Lead Vocal Mic)", "volume": 0.9, "eqHigh": 3.0, "eqMid": 1.5, "eqLow": -1.0, "reverbEnabled": true, "reverbWet": 0.35}
+                ]
+            """.trimIndent()
+
+            try {
+                val rawResponse = GeminiClient.generateText(prompt, "Jste profesionální mastering inženýr a zvukař v nahrávacím studiu.")
+                val cleanJson = cleanJsonBraces(rawResponse)
+                val success = parseAndApplyMixJson(cleanJson, tracks)
+                if (success) {
+                    Toast.makeText(context, "AI Mix dokončen úspěšně podle žánru $genre! ✅", Toast.LENGTH_SHORT).show()
+                } else {
+                    applyDeterministicGenreMix(tracks, genre)
+                    Toast.makeText(context, "Profi Mix nastaven podle akustických šablon pro $genre! 🎛️", Toast.LENGTH_SHORT).show()
+                }
+            } catch (e: Exception) {
+                applyDeterministicGenreMix(tracks, genre)
+                Toast.makeText(context, "Profi Mix nastaven podle akustických šablon pro $genre! 🎛️", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
+    private fun cleanJsonBraces(raw: String): String {
+        var text = raw.trim()
+        if (text.startsWith("```json")) {
+            text = text.substringAfter("```json").substringBeforeLast("```")
+        } else if (text.startsWith("```")) {
+            text = text.substringAfter("```").substringBeforeLast("```")
+        }
+        return text.trim()
+    }
+
+    private suspend fun parseAndApplyMixJson(jsonStr: String, tracks: List<AudioTrack>): Boolean {
+        try {
+            val parser = com.google.gson.JsonParser()
+            val element = parser.parse(jsonStr)
+            if (!element.isJsonArray) return false
+            val array = element.asJsonArray
+            withContext(Dispatchers.IO) {
+                for (i in 0 until array.size()) {
+                    val obj = array.get(i).asJsonObject
+                    val name = obj.get("name")?.asString ?: continue
+                    
+                    val matchedTrack = tracks.find { it.name.trim().equals(name.trim(), ignoreCase = true) }
+                    if (matchedTrack != null) {
+                        val vol = obj.get("volume")?.asFloat ?: matchedTrack.volume
+                        val eqH = obj.get("eqHigh")?.asFloat ?: matchedTrack.eqHigh
+                        val eqM = obj.get("eqMid")?.asFloat ?: matchedTrack.eqMid
+                        val eqL = obj.get("eqLow")?.asFloat ?: matchedTrack.eqLow
+                        val reverbOn = obj.get("reverbEnabled")?.asBoolean ?: matchedTrack.reverbEnabled
+                        val reverbW = obj.get("reverbWet")?.asFloat ?: matchedTrack.reverbWet
+                        
+                        val updated = matchedTrack.copy(
+                            volume = vol.coerceIn(0.1f, 1.0f),
+                            eqHigh = eqH.coerceIn(-12f, 12f),
+                            eqMid = eqM.coerceIn(-12f, 12f),
+                            eqLow = eqL.coerceIn(-12f, 12f),
+                            reverbEnabled = reverbOn,
+                            reverbWet = reverbW.coerceIn(0.1f, 1.0f)
+                        )
+                        repository.updateTrack(updated)
+                    }
+                }
+            }
+            return true
+        } catch (e: Exception) {
+            Log.e("StudioViewModel", "Mix parse error: ${e.message}")
+            return false
+        }
+    }
+
+    private suspend fun applyDeterministicGenreMix(tracks: List<AudioTrack>, genre: String) {
+        withContext(Dispatchers.IO) {
+            val isPopOrVocal = genre.contains("pop", ignoreCase = true) || genre.contains("folk", ignoreCase = true)
+            val isHipHopOrRap = genre.contains("hip", ignoreCase = true) || genre.contains("rap", ignoreCase = true) || genre.contains("beat", ignoreCase = true)
+            
+            for (track in tracks) {
+                val updated = when {
+                    track.trackType.lowercase() == "vocal" -> {
+                        track.copy(
+                            volume = 0.90f,
+                            eqHigh = if (isPopOrVocal) 3.5f else 2.0f,
+                            eqMid = 1.0f,
+                            eqLow = -1.5f,
+                            reverbEnabled = true,
+                            reverbWet = if (isPopOrVocal) 0.4f else 0.25f,
+                            reverbFeedback = 0.5f
+                        )
+                    }
+                    track.trackType.lowercase() == "beat" -> {
+                        track.copy(
+                            volume = 0.75f,
+                            eqLow = if (isHipHopOrRap) 4.0f else 2.0f,
+                            eqMid = -1.0f,
+                            eqHigh = 1.0f,
+                            reverbEnabled = false
+                        )
+                    }
+                    track.trackType.lowercase() == "midi" -> {
+                        track.copy(
+                            volume = 0.60f,
+                            eqHigh = 2.5f,
+                            eqMid = 0.0f,
+                            eqLow = -1.0f,
+                            reverbEnabled = true,
+                            reverbWet = 0.35f,
+                            reverbFeedback = 0.6f
+                        )
+                    }
+                    else -> {
+                        track.copy(
+                            volume = 0.65f,
+                            eqHigh = 1.0f,
+                            eqMid = 0.0f,
+                            eqLow = 0.0f,
+                            reverbEnabled = false
+                        )
+                    }
+                }
+                repository.updateTrack(updated)
+            }
+        }
+    }
+
     fun exportProjectAudio(context: Context, tracks: List<AudioTrack>) {
         val current = _activeProject.value ?: return
         if (tracks.isEmpty()) {
@@ -1501,7 +1657,8 @@ class StudioViewModel(private val repository: StudioRepository) : ViewModel() {
                                 title = obj.optString("title"),
                                 mood = obj.optString("mood"),
                                 durationSec = obj.optInt("durationSec"),
-                                text = obj.optString("text")
+                                text = obj.optString("text"),
+                                localVideoPath = if (obj.has("localVideoPath")) obj.optString("localVideoPath", null) else null
                             )
                         )
                     }
@@ -1550,6 +1707,9 @@ class StudioViewModel(private val repository: StudioRepository) : ViewModel() {
                 obj.put("mood", clip.mood)
                 obj.put("durationSec", clip.durationSec)
                 obj.put("text", clip.text)
+                if (clip.localVideoPath != null) {
+                    obj.put("localVideoPath", clip.localVideoPath)
+                }
                 clipsArr.put(obj)
             }
             root.put("clips", clipsArr)
@@ -1568,6 +1728,180 @@ class StudioViewModel(private val repository: StudioRepository) : ViewModel() {
             file.writeText(root.toString())
         } catch (e: Exception) {
             android.util.Log.e("StudioViewModel", "Chyba ukládání časové osy: ${e.message}")
+        }
+    }
+
+    fun updateClipVideo(context: android.content.Context, projectId: Int, clipId: String, videoPath: String?) {
+        val updated = _timelineClips.value.map {
+            if (it.id == clipId) it.copy(localVideoPath = videoPath) else it
+        }
+        _timelineClips.value = updated
+        saveTimeline(context, projectId)
+    }
+
+    fun applyAiVideoDirector(context: android.content.Context) {
+        val currentProj = _activeProject.value ?: return
+        if (currentProj.lyrics.isBlank()) {
+            Toast.makeText(context, "Před generováním scénáře nejprve vygeneruje text písně!", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        viewModelScope.launch {
+            Toast.makeText(context, "Gemini sestavuje vizuální scénář...", Toast.LENGTH_SHORT).show()
+            val prompt = """
+                Vytvoř přesně 5 unikátních vizuálních scén pro hudební videoklip na motivy textu této písně:
+                "${currentProj.lyrics}"
+                
+                Vrať pouze čistý JSON ve formátu seznamu bez jakýchkoliv odrážek či vysvětlení.
+                Každý objekt v poli musí obsahovat:
+                "title": název scény (např. "Intro v dešti", "Sloka 1 - probuzení", "Klimax refrénu", atd.)
+                "mood": styl a atmosféra (např. "Cyberpunk", "Vaporwave", "Synthwave", "Temné retro")
+                "durationSec": celé číslo délky trvání v sekundách (obvykle 3 nebo 4)
+                "text": detailní vizuální prompt pro AI video generátor (např. "Zpomalený záběr na neonové město v dešti, styl Cyberpunk, 4K")
+                
+                Napiš přesně 5 unikátních objektů v JSON poli.
+            """.trimIndent()
+
+            try {
+                val rawResponse = GeminiClient.generateText(prompt, "Jste profesionální režisér hudebních videoklipů a vizuální designér.")
+                val cleanJson = cleanJsonBraces(rawResponse)
+                
+                val parser = com.google.gson.JsonParser()
+                val element = parser.parse(cleanJson)
+                if (element.isJsonArray) {
+                    val array = element.asJsonArray
+                    val newClips = mutableListOf<com.example.util.TimelineClipData>()
+                    
+                    for (i in 0 until array.size()) {
+                        val obj = array.get(i).asJsonObject
+                        val title = obj.get("title")?.asString ?: "Scéna ${i + 1}"
+                        val mood = obj.get("mood")?.asString ?: "Speciální"
+                        val duration = obj.get("durationSec")?.asInt ?: 3
+                        val text = obj.get("text")?.asString ?: "Vizuální scéna"
+                        
+                        newClips.add(
+                            com.example.util.TimelineClipData(
+                                id = "scene_${i + 1}",
+                                title = title,
+                                mood = mood,
+                                durationSec = duration,
+                                text = text
+                            )
+                        )
+                    }
+                    _timelineClips.value = newClips
+                    saveTimeline(context, currentProj.id)
+                    Toast.makeText(context, "AI Scénář s 5 profesionálními scénami naimportován!", Toast.LENGTH_SHORT).show()
+                } else {
+                    applyFallbackScenario(context, currentProj.id, currentProj.genre)
+                }
+            } catch (e: Exception) {
+                Log.e("StudioViewModel", "GK visual parse error: ${e.message}")
+                applyFallbackScenario(context, currentProj.id, currentProj.genre)
+            }
+        }
+    }
+
+    private fun applyFallbackScenario(context: android.content.Context, projectId: Int, genre: String) {
+        val fbGrid = mutableListOf<com.example.util.TimelineClipData>()
+        fbGrid.add(com.example.util.TimelineClipData("scene_1", "Intro Atmosféra", "Cinematic", 3, "Záběr na ranní mlhu stoupající z hor, odraz slunce, 4K rozlišení, styl $genre"))
+        fbGrid.add(com.example.util.TimelineClipData("scene_2", "Sloka - Příběh", "Dramatic", 4, "Postava stojící na střeše mrakodrapu v dešti, fialové neonové odrazy, žánr $genre"))
+        fbGrid.add(com.example.util.TimelineClipData("scene_3", "Refrén - Energie", "Vibrant", 4, "Abstrakce rotujících vln zvuku s jasnými částicemi pulzujícími do rytmu, 8K ultra-detail"))
+        fbGrid.add(com.example.util.TimelineClipData("scene_4", "Sloka 2 - Zvrat", "Atmospheric", 3, "Detailní záběr na kapky vody dopadající na sklo v noci, světla projíždějících aut, styl $genre"))
+        fbGrid.add(com.example.util.TimelineClipData("scene_5", "Outro - Dozvuk", "Dreamy", 4, "Pomalé stmívání do zlatého západu slunce nad mořem mraků, klid a mír"))
+        
+        _timelineClips.value = fbGrid
+        saveTimeline(context, projectId)
+        Toast.makeText(context, "Načten profesionální lokální vizuální scénář pro $genre!", Toast.LENGTH_SHORT).show()
+    }
+
+    fun applyStudioVoiceProcessor(context: android.content.Context, track: AudioTrack) {
+        val path = track.filePath
+        if (path.isNullOrEmpty() || !java.io.File(path).exists()) {
+            Toast.makeText(context, "Musíte nejprve nahrát vokální stopu přes mikrofon!", Toast.LENGTH_SHORT).show()
+            return
+        }
+        
+        pushUndoSnapshot(force = true)
+        viewModelScope.launch {
+            Toast.makeText(context, "AI čistí šum a ladí tóninu projektu...", Toast.LENGTH_SHORT).show()
+            withContext(Dispatchers.IO) {
+                val sampleRate = 22050
+                val originalFile = java.io.File(path)
+                val pcmBytes = ExportFileHelper.decodeToPcm(originalFile, sampleRate)
+                if (pcmBytes.isNotEmpty()) {
+                    val shortCount = pcmBytes.size / 2
+                    val shortArr = ShortArray(shortCount)
+                    java.nio.ByteBuffer.wrap(pcmBytes).order(java.nio.ByteOrder.LITTLE_ENDIAN).asShortBuffer().get(shortArr)
+                    
+                    val activeProj = _activeProject.value
+                    val genre = activeProj?.genre ?: "Pop"
+                    val filteredSamples = com.example.util.AudioEffectsProcessor.applyStudioVoiceFilter(shortArr, genre)
+                    
+                    val processedFilename = "studio_voice_${track.trackId}_${System.currentTimeMillis()}.wav"
+                    val processedFile = java.io.File(context.cacheDir, processedFilename)
+                    com.example.util.AudioEffectsProcessor.writeSamplesToWavFile(filteredSamples, sampleRate, processedFile)
+                    
+                    val updated = track.copy(
+                        name = "${track.name} ✨ (Studio Voice)",
+                        filePath = processedFile.absolutePath,
+                        eqHigh = 2.0f, // boost air
+                        eqLow = -1.0f  // clean mud
+                    )
+                    repository.updateTrack(updated)
+                }
+            }
+            Toast.makeText(context, "Hlas upraven digitálním filtrem Studio Voice!", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    fun generateHarmonizerBackingVocals(context: android.content.Context, track: AudioTrack) {
+        val path = track.filePath
+        if (path.isNullOrEmpty() || !java.io.File(path).exists()) {
+            Toast.makeText(context, "Pro harmonizování musíte nejprve nahrát hlavní vokál!", Toast.LENGTH_SHORT).show()
+            return
+        }
+        
+        pushUndoSnapshot(force = true)
+        viewModelScope.launch {
+            Toast.makeText(context, "AI Harmonizér generuje 2 doprovodné vokální stopy...", Toast.LENGTH_SHORT).show()
+            withContext(Dispatchers.IO) {
+                val originalFile = java.io.File(path)
+                
+                val filenameL = "harmony_low_${track.trackId}_${System.currentTimeMillis()}.wav"
+                val fileL = java.io.File(context.cacheDir, filenameL)
+                // major third down (approx pitch factor 0.83)
+                com.example.util.AudioEffectsProcessor.generateHarmonicCopy(originalFile, fileL, 0.83)
+                
+                val filenameR = "harmony_high_${track.trackId}_${System.currentTimeMillis()}.wav"
+                val fileR = java.io.File(context.cacheDir, filenameR)
+                // perfect fifth up (approx pitch factor 1.25)
+                com.example.util.AudioEffectsProcessor.generateHarmonicCopy(originalFile, fileR, 1.25)
+                
+                if (fileL.exists() && fileR.exists()) {
+                    val trackL = AudioTrack(
+                        projectId = track.projectId,
+                        name = "Doprovod L 🏠 (Harmonická Térce)",
+                        filePath = fileL.absolutePath,
+                        volume = 0.65f,
+                        trackType = "Vocal",
+                        startOffsetMs = 15L // Haas Effect delay offset for wide depth
+                    )
+                    
+                    val trackR = AudioTrack(
+                        projectId = track.projectId,
+                        name = "Doprovod R 🌟 (Harmonická Kvinta)",
+                        filePath = fileR.absolutePath,
+                        volume = 0.65f,
+                        trackType = "Vocal",
+                        startOffsetMs = 30L // Delay offset
+                    )
+                    
+                    repository.insertTrack(trackL)
+                    repository.insertTrack(trackR)
+                }
+            }
+            Toast.makeText(context, "Harmonické doprovodné stopy vloženy na časovou osu!", Toast.LENGTH_SHORT).show()
         }
     }
 

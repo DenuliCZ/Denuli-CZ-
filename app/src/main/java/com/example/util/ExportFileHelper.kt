@@ -2735,7 +2735,8 @@ data class TimelineClipData(
     val title: String,
     val mood: String,
     val durationSec: Int,
-    val text: String
+    val text: String,
+    val localVideoPath: String? = null
 )
 
 data class TransitionData(

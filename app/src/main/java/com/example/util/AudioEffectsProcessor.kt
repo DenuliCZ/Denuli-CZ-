@@ -5,6 +5,103 @@ import kotlin.math.pow
 
 object AudioEffectsProcessor {
 
+    suspend fun applyStudioVoiceFilter(samples: ShortArray, genre: String): ShortArray {
+        // 1. Noise gate / reduction threshold (attenuate clicks/background hum)
+        val threshold = 400
+        val tempOutput = ShortArray(samples.size)
+        
+        val windowSize = 512
+        val step = 256
+        val sampleRate = 22050f
+        
+        // Frequencies corresponding to genre chords
+        val targetFrequencies = when (genre.lowercase()) {
+            "hiphop", "hip-hop", "rap" -> doubleArrayOf(110.0, 130.81, 146.83, 164.81, 196.0, 220.0, 261.63, 293.66, 329.63, 392.0, 440.0) // A Minor
+            "rock", "metal" -> doubleArrayOf(110.0, 123.47, 146.83, 164.81, 196.0, 220.0, 246.94, 293.66, 329.63, 392.0, 440.0) // E Minor/A Minor
+            else -> doubleArrayOf(130.81, 146.83, 164.81, 174.61, 196.0, 220.0, 246.94, 261.63, 293.66, 329.63, 349.23, 392.0, 440.0) // C Major for Pop/others
+        }
+
+        System.arraycopy(samples, 0, tempOutput, 0, samples.size)
+
+        var i = 0
+        while (i + windowSize <= samples.size) {
+            var maxVal = 0
+            for (j in 0 until windowSize) {
+                val absV = Math.abs(samples[i + j].toInt())
+                if (absV > maxVal) maxVal = absV
+            }
+            
+            val gateRatio = if (maxVal < threshold) 0.08f else 1.0f
+            
+            var bestLag = -1
+            var bestR = -1.0
+            val minLag = (sampleRate / 450f).toInt()
+            val maxLag = (sampleRate / 85f).toInt()
+            
+            for (lag in minLag..maxLag) {
+                var r = 0.0
+                for (j in 0 until windowSize - lag) {
+                    r += samples[i + j].toDouble() * samples[i + j + lag].toDouble()
+                }
+                if (bestLag == -1 || r > bestR) {
+                    bestR = r
+                    bestLag = lag
+                }
+            }
+            
+            val detectedFreq = if (bestLag > 0) sampleRate / bestLag else 0f
+            
+            if (detectedFreq in 85f..450f && maxVal > threshold) {
+                var nearestFreq = targetFrequencies[0]
+                var minDiff = Math.abs(detectedFreq - nearestFreq)
+                for (tf in targetFrequencies) {
+                    val diff = Math.abs(detectedFreq - tf)
+                    if (diff < minDiff) {
+                        minDiff = diff
+                        nearestFreq = tf
+                    }
+                }
+                
+                val ratio = (nearestFreq / detectedFreq.toDouble()).coerceIn(0.88, 1.12)
+                for (j in 0 until windowSize) {
+                    val srcIndex = i + (j * ratio).toInt()
+                    if (srcIndex in samples.indices) {
+                        val valDouble = samples[srcIndex].toDouble()
+                        tempOutput[i + j] = (valDouble * gateRatio).coerceIn(-32768.0, 32767.0).toInt().toShort()
+                    }
+                }
+            } else {
+                for (j in 0 until windowSize) {
+                    val valDouble = samples[i + j].toDouble()
+                    tempOutput[i + j] = (valDouble * gateRatio).coerceIn(-32768.0, 32767.0).toInt().toShort()
+                }
+            }
+            
+            i += step
+        }
+        return tempOutput
+    }
+
+    suspend fun generateHarmonicCopy(originalFile: java.io.File, outputFile: java.io.File, pitchRatio: Double) {
+        val sampleRate = 22050
+        val pcmBytes = ExportFileHelper.decodeToPcm(originalFile, sampleRate)
+        if (pcmBytes.isEmpty()) return
+        
+        val shortCount = pcmBytes.size / 2
+        val shortArr = ShortArray(shortCount)
+        java.nio.ByteBuffer.wrap(pcmBytes).order(java.nio.ByteOrder.LITTLE_ENDIAN).asShortBuffer().get(shortArr)
+        
+        val targetSize = (shortArr.size / pitchRatio).toInt()
+        val processed = ShortArray(targetSize)
+        for (i in 0 until targetSize) {
+            val srcIndex = (i * pitchRatio).toInt()
+            if (srcIndex in shortArr.indices) {
+                processed[i] = shortArr[srcIndex]
+            }
+        }
+        writeSamplesToWavFile(processed, sampleRate, outputFile)
+    }
+
     suspend fun processTrackFileWithEffects(track: AudioTrack, originalFile: java.io.File, outputFile: java.io.File) {
         val sampleRate = 22050
         val pcmBytes = ExportFileHelper.decodeToPcm(originalFile, sampleRate)

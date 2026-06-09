@@ -3336,6 +3336,36 @@ fun StudioTab(
 
                                         Spacer(modifier = Modifier.height(10.dp))
 
+                                        if (track.trackType == "Vocal" && !track.filePath.isNullOrEmpty() && File(track.filePath).exists()) {
+                                            Spacer(modifier = Modifier.height(8.dp))
+                                            Row(
+                                                modifier = Modifier.fillMaxWidth().testTag("vocal_ai_actions_${track.trackId}"),
+                                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                Button(
+                                                    onClick = { viewModel.applyStudioVoiceProcessor(context, track) },
+                                                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFA55EEA), contentColor = Color.White),
+                                                    modifier = Modifier.weight(1f).height(28.dp),
+                                                    shape = RoundedCornerShape(6.dp),
+                                                    contentPadding = PaddingValues(horizontal = 6.dp, vertical = 2.dp)
+                                                ) {
+                                                    Text("AI STUDIO VOICE ✨", fontSize = 8.sp, fontWeight = FontWeight.Bold)
+                                                }
+
+                                                Button(
+                                                    onClick = { viewModel.generateHarmonizerBackingVocals(context, track) },
+                                                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF26DE81), contentColor = Color.Black),
+                                                    modifier = Modifier.weight(1f).height(28.dp),
+                                                    shape = RoundedCornerShape(6.dp),
+                                                    contentPadding = PaddingValues(horizontal = 6.dp, vertical = 2.dp)
+                                                ) {
+                                                    Text("AI HARMONIZÉR 🎙️", fontSize = 8.sp, fontWeight = FontWeight.Bold)
+                                                }
+                                            }
+                                            Spacer(modifier = Modifier.height(10.dp))
+                                        }
+
                                         // Canvas-based audio waveform renderer
                                         WaveformRenderer(
                                             filePath = track.filePath,

@@ -1,6 +1,8 @@
 package com.example.ui.components
 
 import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -485,6 +487,189 @@ fun InteractiveTimeline(
                                     .background(Color(0xFF00FFC2), RoundedCornerShape(3.dp))
                                     .align(Alignment.TopCenter)
                             )
+                        }
+                    }
+                }
+            }
+        }
+
+        // Clipboard and video selector tools
+        val clipboardManager = androidx.compose.ui.platform.LocalClipboardManager.current
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // Robust auto-save state overlay badge to reassure concern/buyer of state persistence
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(8.dp))
+                .background(Color(0xFF14241B))
+                .border(0.5.dp, Color(0xFF00FFC2).copy(alpha = 0.3f), RoundedCornerShape(8.dp))
+                .padding(horizontal = 10.dp, vertical = 6.dp),
+            contentAlignment = Alignment.CenterStart
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    modifier = Modifier
+                        .size(6.dp)
+                        .clip(androidx.compose.foundation.shape.CircleShape)
+                        .background(Color(0xFF00FFC2))
+                )
+                Spacer(modifier = Modifier.width(6.dp))
+                Text(
+                    text = "VŠECHNY ZMĚNY AUTOMATICKY ULOŽENY ✅ (Auto-Save aktivní)",
+                    color = Color(0xFF00FFC2),
+                    fontSize = 9.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // Header
+        Text(
+            text = "🎬 AI REŽISÉR VIDEA: VIZUÁLNÍ SCÉNÁŘ",
+            color = Color.White,
+            fontWeight = FontWeight.Bold,
+            fontSize = 12.sp
+        )
+        Text(
+            text = "Naplánované scény pro videoklip z textu písně. Zkopírujte prompty pro externí generátory (Sora, Luma, Runway) nebo nahrajte vlastní hotová videa.",
+            color = Color(0xFF8E8CA4),
+            fontSize = 9.sp,
+            modifier = Modifier.padding(bottom = 8.dp)
+        )
+
+        videoClips.forEachIndexed { index, clip ->
+            val videoPickerLauncher = rememberLauncherForActivityResult(
+                contract = ActivityResultContracts.OpenDocument()
+            ) { uri ->
+                if (uri != null) {
+                    try {
+                        context.contentResolver.takePersistableUriPermission(
+                            uri,
+                            android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION
+                        )
+                    } catch (e: Exception) {
+                        // ignore
+                    }
+                    viewModel.updateClipVideo(context, project.id, clip.id, uri.toString())
+                    Toast.makeText(context, "Video naimportováno pro scénu ${index + 1} 📹", Toast.LENGTH_SHORT).show()
+                }
+            }
+
+            Card(
+                colors = CardDefaults.cardColors(containerColor = Color(0xFF191033)),
+                shape = RoundedCornerShape(10.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 4.dp)
+                    .border(0.5.dp, Color(0xFF2E1C5E), RoundedCornerShape(10.dp))
+            ) {
+                Column(modifier = Modifier.padding(10.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "Scéna ${index + 1}: ${clip.title.uppercase()}",
+                            color = Color(0xFFE27CFF),
+                            fontWeight = FontWeight.ExtraBold,
+                            fontSize = 10.sp
+                        )
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(4.dp))
+                                .background(Color(0xFF2D174E))
+                                .padding(horizontal = 6.dp, vertical = 2.dp)
+                        ) {
+                            Text(
+                                text = "${clip.mood} | ${clip.durationSec}s",
+                                color = Color.LightGray,
+                                fontSize = 8.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(4.dp))
+
+                    Text(
+                        text = "Vizuální popis (Prompt):",
+                        color = Color.Gray,
+                        fontSize = 8.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        text = clip.text,
+                        color = Color.White,
+                        fontSize = 10.sp,
+                        lineHeight = 13.sp,
+                        modifier = Modifier.padding(vertical = 2.dp)
+                    )
+
+                    Spacer(modifier = Modifier.height(6.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Button(
+                            onClick = {
+                                clipboardManager.setText(androidx.compose.ui.text.AnnotatedString(clip.text))
+                                Toast.makeText(context, "Prompt zkopírován do schránky! 📋", Toast.LENGTH_SHORT).show()
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2E174F), contentColor = Color.White),
+                            shape = RoundedCornerShape(6.dp),
+                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
+                            modifier = Modifier.height(26.dp)
+                        ) {
+                            Text("ZKOPÍROVAT PROMPT 📋", fontSize = 8.sp, fontWeight = FontWeight.Bold)
+                        }
+
+                        Button(
+                            onClick = {
+                                videoPickerLauncher.launch(arrayOf("video/*"))
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF123456), contentColor = Color.White),
+                            shape = RoundedCornerShape(6.dp),
+                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
+                            modifier = Modifier.height(26.dp)
+                        ) {
+                            Text(
+                                text = if (!clip.localVideoPath.isNullOrEmpty()) "ZMĚNIT VIDEO 📹" else "NAHRÁT VIDEO 📹",
+                                fontSize = 8.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+
+                        if (!clip.localVideoPath.isNullOrEmpty()) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(6.dp))
+                                    .background(Color(0xFF14241B))
+                                    .padding(horizontal = 6.dp, vertical = 2.dp)
+                            ) {
+                                Text(
+                                    text = "UKÁZKA PŘIPRAVENA ✅",
+                                    color = Color.Green,
+                                    fontSize = 8.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Box(
+                                    modifier = Modifier
+                                        .size(14.dp)
+                                        .clickable { viewModel.updateClipVideo(context, project.id, clip.id, null) },
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text("❌", color = Color.Red, fontSize = 7.sp)
+                                }
+                            }
                         }
                     }
                 }

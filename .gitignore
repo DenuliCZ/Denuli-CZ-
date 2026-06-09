@@ -1,0 +1,15 @@
+# Android Gitignore
+
+# Local configuration
+.env
+local.properties
+
+# Build artifacts
+.gradle/
+build/
+app/build/
+.build-outputs/
+
+# OS files
+.DS_Store
+Thumbs.db
