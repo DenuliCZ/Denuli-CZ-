@@ -85,7 +85,7 @@ object GeminiClient {
         }
         val bKey = BuildConfig.GEMINI_API_KEY
         if (bKey.isNullOrBlank() || bKey == "YOUR_API_KEY_HERE" || bKey == "null") {
-            return "AIzaSyBMGc_jY8avhVkYk4YPDx5id5SulV3_tCU"
+            return ""
         }
         return bKey.trim()
     }
