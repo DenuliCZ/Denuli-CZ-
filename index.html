@@ -1,0 +1,767 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Spark Studio - Oficiální webová stránka aplikace</title>
+    <!-- Modern Google Font: Outfit & JetBrains Mono -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #080512;
+            --card-bg: #120b29;
+            --card-border: #231846;
+            --accent-cyan: #00ffc2;
+            --accent-violet: #8a2be2;
+            --text-main: #f5f3f9;
+            --text-muted: #a39eb8;
+            --glass-bg: rgba(18, 11, 41, 0.7);
+            --glass-border: rgba(35, 24, 70, 0.6);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            scroll-behavior: smooth;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            font-family: 'Outfit', sans-serif;
+            line-height: 1.6;
+            overflow-x: hidden;
+            background-image: 
+                radial-gradient(circle at 10% 20%, rgba(138, 43, 226, 0.1) 0%, transparent 40%),
+                radial-gradient(circle at 90% 80%, rgba(0, 255, 194, 0.08) 0%, transparent 40%);
+            background-attachment: fixed;
+        }
+
+        /* Ambient glowing background decoration */
+        .glow-orb {
+            position: absolute;
+            width: 300px;
+            height: 300px;
+            border-radius: 50%;
+            background: var(--accent-violet);
+            filter: blur(120px);
+            opacity: 0.2;
+            z-index: -1;
+            pointer-events: none;
+        }
+
+        .orb-1 { top: 15%; left: 10%; }
+        .orb-2 { top: 60%; right: 5%; background: var(--accent-cyan); }
+
+        /* Navigation Bar */
+        nav {
+            position: sticky;
+            top: 0;
+            background: var(--glass-bg);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--glass-border);
+            z-index: 100;
+            padding: 1rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .nav-logo {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 1.5rem;
+            font-weight: 800;
+            color: #fff;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            text-decoration: none;
+        }
+
+        .nav-logo span {
+            color: var(--accent-cyan);
+            text-shadow: 0 0 10px rgba(0, 255, 194, 0.4);
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 1.5rem;
+            list-style: none;
+        }
+
+        .nav-links a {
+            color: var(--text-muted);
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 0.95rem;
+            transition: color 0.3s, text-shadow 0.3s;
+            padding: 5px 10px;
+            border-radius: 6px;
+        }
+
+        .nav-links a:hover, .nav-links a.active {
+            color: #fff;
+            text-shadow: 0 0 8px rgba(255, 255, 255, 0.5);
+        }
+
+        .nav-links a.nav-cta {
+            background-color: var(--accent-cyan);
+            color: #080512;
+            text-shadow: none;
+            padding: 6px 14px;
+            border-radius: 20px;
+        }
+
+        .nav-links a.nav-cta:hover {
+            box-shadow: 0 0 15px rgba(0, 255, 194, 0.6);
+            transform: translateY(-1px);
+        }
+
+        /* Hero Section */
+        header.hero {
+            max-width: 1100px;
+            margin: 0 auto;
+            padding: 6rem 2rem 4rem 2rem;
+            text-align: center;
+            position: relative;
+        }
+
+        .hero-badge {
+            background: rgba(0, 255, 194, 0.08);
+            border: 1px solid rgba(0, 255, 194, 0.3);
+            color: var(--accent-cyan);
+            padding: 6px 14px;
+            border-radius: 30px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            display: inline-block;
+            margin-bottom: 1.5rem;
+            letter-spacing: 1.5px;
+            text-transform: uppercase;
+            box-shadow: 0 0 15px rgba(0, 255, 194, 0.05);
+        }
+
+        h1 {
+            font-size: 3.5rem;
+            font-weight: 800;
+            line-height: 1.15;
+            margin-bottom: 1.5rem;
+            color: #fff;
+            letter-spacing: -1px;
+        }
+
+        h1 span {
+            background: linear-gradient(135deg, #fff 30%, var(--accent-cyan) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .hero-lead {
+            font-size: 1.25rem;
+            color: var(--text-muted);
+            max-width: 700px;
+            margin: 0 auto 2.5rem auto;
+            font-weight: 300;
+        }
+
+        .hero-actions {
+            display: flex;
+            justify-content: center;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0.8rem 1.8rem;
+            border-radius: 30px;
+            font-size: 1rem;
+            font-weight: 600;
+            text-decoration: none;
+            transition: all 0.3s;
+            cursor: pointer;
+        }
+
+        .btn-primary {
+            background-color: var(--accent-cyan);
+            color: #080512;
+            box-shadow: 0 4px 20px rgba(0, 255, 194, 0.3);
+        }
+
+        .btn-primary:hover {
+            background-color: #00e5af;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 25px rgba(0, 255, 194, 0.5);
+        }
+
+        .btn-secondary {
+            background-color: transparent;
+            color: #fff;
+            border: 1px solid var(--card-border);
+        }
+
+        .btn-secondary:hover {
+            background-color: rgba(255, 255, 255, 0.05);
+            border-color: var(--text-muted);
+            transform: translateY(-2px);
+        }
+
+        /* Features Cards Grid */
+        .features-section {
+            max-width: 1100px;
+            margin: 0 auto;
+            padding: 4rem 2rem;
+        }
+
+        .section-title {
+            text-align: center;
+            font-size: 2rem;
+            margin-bottom: 3rem;
+            color: #fff;
+            font-weight: 800;
+        }
+
+        .section-title span {
+            color: var(--accent-cyan);
+        }
+
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 1.5rem;
+        }
+
+        .feature-card {
+            background-color: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 16px;
+            padding: 2rem;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .feature-card:hover {
+            transform: translateY(-5px);
+            border-color: rgba(0, 255, 194, 0.4);
+            box-shadow: 0 10px 30px rgba(0, 255, 194, 0.05);
+        }
+
+        .feature-icon {
+            font-size: 2rem;
+            margin-bottom: 1.2rem;
+            display: inline-block;
+        }
+
+        .feature-card h3 {
+            font-size: 1.25rem;
+            margin-bottom: 0.8rem;
+            color: #fff;
+            font-weight: 600;
+        }
+
+        .feature-card p {
+            font-size: 0.95rem;
+            color: var(--text-muted);
+            line-height: 1.5;
+        }
+
+        /* Interactive Tabs and Legal Docs Panel */
+        .legal-section {
+            max-width: 1000px;
+            margin: 4rem auto;
+            padding: 0 2rem;
+        }
+
+        .tabs-header {
+            display: flex;
+            justify-content: center;
+            gap: 1rem;
+            margin-bottom: 2rem;
+            border-bottom: 1px solid var(--card-border);
+            padding-bottom: 1rem;
+        }
+
+        .tab-btn {
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            padding: 10px 20px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            font-family: 'Outfit', sans-serif;
+            cursor: pointer;
+            transition: all 0.3s;
+            border-radius: 30px;
+        }
+
+        .tab-btn:hover {
+            color: #fff;
+        }
+
+        .tab-btn.active {
+            color: #080512;
+            background-color: var(--accent-cyan);
+            box-shadow: 0 0 15px rgba(0, 255, 194, 0.3);
+        }
+
+        .tab-content {
+            display: none;
+            background-color: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 16px;
+            padding: 3rem;
+            max-height: 650px;
+            overflow-y: auto;
+            box-shadow: 0 15px 40px rgba(0, 0, 0, 0.3);
+        }
+
+        .tab-content.active {
+            display: block;
+            animation: fadeIn 0.4s ease-in-out;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Custom Scrollbar for Legal Docs Container */
+        .tab-content::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .tab-content::-webkit-scrollbar-track {
+            background: var(--bg-color);
+            border-radius: 0 16px 16px 0;
+        }
+
+        .tab-content::-webkit-scrollbar-thumb {
+            background: var(--card-border);
+            border-radius: 10px;
+        }
+
+        .tab-content::-webkit-scrollbar-thumb:hover {
+            background: var(--text-muted);
+        }
+
+        /* Markdown-styled content inside Legal */
+        .legal-body {
+            font-size: 0.95rem;
+            line-height: 1.7;
+            color: #e2dfeb;
+        }
+
+        .legal-body h1 {
+            font-size: 1.8rem;
+            font-weight: 800;
+            color: #fff;
+            margin-bottom: 0.5rem;
+            text-align: left;
+        }
+
+        .legal-body .last-updated {
+            color: var(--accent-cyan);
+            font-weight: 600;
+            margin-bottom: 2rem;
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .legal-body h2 {
+            font-size: 1.25rem;
+            color: #fff;
+            margin: 2rem 0 1rem 0;
+            border-bottom: 1px solid var(--card-border);
+            padding-bottom: 0.4rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .legal-body h3 {
+            font-size: 1.05rem;
+            color: var(--accent-cyan);
+            margin: 1.2rem 0 0.5rem 0;
+            font-weight: 600;
+        }
+
+        .legal-body p {
+            margin-bottom: 1.2rem;
+        }
+
+        .legal-body ul, .legal-body ol {
+            margin-bottom: 1.5rem;
+            padding-left: 1.5rem;
+        }
+
+        .legal-body li {
+            margin-bottom: 0.6rem;
+        }
+
+        .legal-body strong {
+            color: #fff;
+        }
+
+        .legal-body hr {
+            border: 0;
+            height: 1px;
+            background: var(--card-border);
+            margin: 2rem 0;
+        }
+
+        .legal-body .payout-highlight {
+            background: rgba(0, 255, 194, 0.04);
+            border-left: 3px solid var(--accent-cyan);
+            padding: 1.2rem;
+            border-radius: 4px 8px 8px 4px;
+            margin: 1.5rem 0;
+        }
+
+        /* Footer */
+        footer {
+            background-color: #05030c;
+            border-top: 1px solid var(--card-border);
+            padding: 4rem 2rem 2rem 2rem;
+            text-align: center;
+        }
+
+        .footer-logo {
+            font-size: 1.6rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            margin-bottom: 1rem;
+            color: #fff;
+        }
+
+        .footer-logo span {
+            color: var(--accent-cyan);
+        }
+
+        .footer-text {
+            color: var(--text-muted);
+            max-width: 600px;
+            margin: 0 auto 2rem auto;
+            font-size: 0.9rem;
+        }
+
+        .footer-links {
+            display: flex;
+            justify-content: center;
+            gap: 2rem;
+            list-style: none;
+            margin-bottom: 2rem;
+            flex-wrap: wrap;
+        }
+
+        .footer-links a {
+            color: var(--text-muted);
+            text-decoration: none;
+            transition: color 0.3s;
+            font-size: 0.9rem;
+        }
+
+        .footer-links a:hover {
+            color: #fff;
+        }
+
+        .footer-contact {
+            background-color: var(--card-bg);
+            border: 1px solid var(--card-border);
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 18px;
+            border-radius: 30px;
+            color: #fff;
+            text-decoration: none;
+            font-size: 0.9rem;
+            font-weight: 600;
+            transition: all 0.3s;
+            margin-bottom: 2.5rem;
+        }
+
+        .footer-contact:hover {
+            border-color: var(--accent-cyan);
+            box-shadow: 0 0 10px rgba(0, 255, 194, 0.2);
+        }
+
+        .copyright {
+            font-size: 0.8rem;
+            color: rgba(163, 158, 184, 0.4);
+            border-top: 1px solid rgba(35, 24, 70, 0.4);
+            padding-top: 2rem;
+            max-width: 1100px;
+            margin: 0 auto;
+        }
+
+        /* Responsive Breakpoints */
+        @media (max-width: 768px) {
+            h1 { font-size: 2.5rem; }
+            .hero-lead { font-size: 1.1rem; }
+            .nav-links { display: none; } /* Simplified for landing page */
+            .tab-content { padding: 1.5rem; }
+            .tab-btn { padding: 8px 14px; font-size: 0.95rem; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="glow-orb orb-1"></div>
+    <div class="glow-orb orb-2"></div>
+
+    <!-- Navigation Bar -->
+    <nav>
+        <a href="#" class="nav-logo">⚡ <span>Spark Studio</span></a>
+        <ul class="nav-links">
+            <li><a href="#about">O aplikaci</a></li>
+            <li><a href="#features">Funkce</a></li>
+            <li><a href="#legal" onclick="switchTab('privacy')">Zásady soukromí</a></li>
+            <li><a href="#legal" onclick="switchTab('terms')">Smluvní podmínky</a></li>
+            <li><a href="#legal" class="nav-cta">GDPR & Podmínky</a></li>
+        </ul>
+    </nav>
+
+    <!-- Hero Header -->
+    <header class="hero" id="about">
+        <div class="hero-badge">Mobilní studio budoucnosti</div>
+        <h1>Tvořte, mixujte a sdílejte<br>hudbu ve <span>Spark Studio</span></h1>
+        <p class="hero-lead">Profesionální vícestopé nahrávací studio, pokročilý filmový videoeditor a kreativní asistent s umělou inteligencí přímo ve vaší kapse.</p>
+        <div class="hero-actions">
+            <a href="#legal" class="btn btn-primary" onclick="switchTab('privacy')">Zásady ochrany osobních údajů (GDPR)</a>
+            <a href="#legal" class="btn btn-secondary" onclick="switchTab('terms')">Smluvní podmínky užití (TOS)</a>
+        </div>
+    </header>
+
+    <!-- Core Features Section -->
+    <section class="features-section" id="features">
+        <h2 class="section-title">Co dělá <span>Spark Studio</span> jedinečným?</h2>
+        <div class="features-grid">
+            
+            <div class="feature-card">
+                <span class="feature-icon">🏦</span>
+                <h3>100% zisk pro Vás</h3>
+                <p>Nabízejte své skladby k neexkluzivnímu licencování. Provozovatel si nestrhává žádné provize. Veškeré výplaty jdou 100% přímo na váš bankovní účet.</p>
+            </div>
+
+            <div class="feature-card">
+                <span class="feature-icon">🛡️</span>
+                <h3>Garance bez reklam</h3>
+                <p>Spark Studio je a navždy zůstane kompletně bez reklam. Žádný spam, žádné otravné bannery ani sledovací skripty. Pouze čistá kreativita.</p>
+            </div>
+
+            <div class="feature-card">
+                <span class="feature-icon">🔮</span>
+                <h3>Kreativní AI asistent</h3>
+                <p>Generujte originální texty písní, analyzujte vizuální náladu a vytvářejte podrobné scénáře hudebních videoklipů za pomoci integrovaného Google Gemini.</p>
+            </div>
+
+            <div class="feature-card">
+                <span class="feature-icon">🔒</span>
+                <h3>Zabezpečení a GDPR</h3>
+                <p>Vaše osobní a bankovní údaje jsou šifrovány a bezpečně uchovány lokálně v sandboxovém chráněném úložišti systému Android.</p>
+            </div>
+
+        </div>
+    </section>
+
+    <!-- Document Tabs Panel -->
+    <section class="legal-section" id="legal">
+        <h2 class="section-title">Oficiální <span>Dokumentace</span></h2>
+        
+        <div class="tabs-header">
+            <button class="tab-btn active" id="btn-privacy" onclick="switchTab('privacy')">Zásady ochrany osobních údajů</button>
+            <button class="tab-btn" id="btn-terms" onclick="switchTab('terms')">Smluvní podmínky užití</button>
+        </div>
+
+        <!-- Privacy Policy Content -->
+        <div class="tab-content active" id="content-privacy">
+            <div class="legal-body">
+                <h1>ZÁSADY OCHRANY OSOBNÍCH ÚDAJŮ</h1>
+                <div class="last-updated">Poslední aktualizace: Červen 2026</div>
+                
+                <p>Aplikace <strong>Spark Studio</strong> (dále jen „Aplikace“), provozovaná vývojářským týmem Spark Studio (dále jen „My“), bere ochranu Vašich osobních údajů s maximální vážností. Tyto Zásady ochrany osobních údajů byly sestaveny v plném souladu s Nařízením Evropského parlamentu a Rady (EU) 2016/679 o ochraně fyzických osob v souvislosti se zpracováním osobních údajů (GDPR), autorským zákonem ČR (č. 121/2000 Sb.), občanským zákoníkem ČR (č. 89/2012 Sb.) a přísnými požadavky zásad vývojářů Google Play Console pro nakládání s osobními a citlivými finančními údaji.</p>
+                
+                <hr>
+
+                <h2>1. SPRÁVCE OSOBNÍCH ÚDAJŮ A KONTAKT</h2>
+                <p>Správcem osobních údajů je provozovatel aplikace Spark Studio. V případě jakýchkoli dotazů, žádostí o smazání účtu nebo uplatnění Vašich práv nás můžete kontaktovat na e-mailové adrese: <strong>denulinkacervinkova@gmail.com</strong> nebo přímo v sekci „Můj Profil“ v aplikaci.</p>
+
+                <h2>2. ROZSAH A KATEGORIE ZPRACOVÁVANÝCH ÚDAJŮ</h2>
+                <p>Zpracováváme pouze ty údaje, které jsou nezbytné pro bezproblémové fungování kreativních, cloudových, distribučních a monetizačních funkcí aplikace:</p>
+
+                <h3>A. Uživatelský profil a identifikační údaje</h3>
+                <ul>
+                    <li><strong>Registrační jméno / přezdívka:</strong> Slouží k identifikaci autora v komunitním feedu a na tržišti (Marketplace).</li>
+                    <li><strong>Věk / Potvrzení plnoletosti (18+):</strong> Z důvodu ochrany nezletilých a finančních aspektů distribuce licencí vyžadujeme explicitní ověření věku na kartě „Můj Profil“.</li>
+                </ul>
+
+                <div class="payout-highlight">
+                    <h3>B. Fakturační a bankovní údaje pro vyplácení odměn (Citlivé finanční údaje)</h3>
+                    <p>Zpracováváme následující údaje pro zajištění legální a hladké realizace plateb autorům:</p>
+                    <ul>
+                        <li><strong>Celé jméno příjemce / název firmy:</strong> Slouží k přesné identifikaci příjemce při bankovních převodech a smluvním zpracování licencí.</li>
+                        <li><strong>IČO (Identifikační číslo osoby):</strong> Nepovinné. Zpracovává se pouze u podnikajících subjektů (OSVČ / firmy).</li>
+                        <li><strong>Číslo bankovního účtu (a kód banky, případně IBAN/BIC):</strong> Slouží výhradně k realizaci bezhotovostních převodů a odeslání 100 % autorského zisku z prodeje licencí přímo na Váš účet. Tyto údaje jsou přísně střeženy a chráněny proti zneužití v souladu s bezpečnostními protokoly systému Android a bankovních standardů.</li>
+                    </ul>
+                </div>
+
+                <h3>C. Generativní AI data (Vstupy a Výstupy)</h3>
+                <ul>
+                    <li><strong>Textová zadání (Prompty):</strong> Texty zadané pro generování textů písní (Gemini API) nebo kompletních skladeb prostřednictvím cloudových AI generátorů.</li>
+                    <li><strong>Hlasové nahrávky a vokály:</strong> Audio data nahraná přes mikrofon uživatele, která slouží pro mixážní pult.</li>
+                    <li><em>Upozornění:</em> Všechny AI prompty a požadavky jsou zpracovávány bezpečně a šifrovaně přes oficiální HTTPS API Google Gemini a integrované cloudové služby. Nejsou využívány pro trénování veřejných modelů bez Vašeho výslovného souhlasu.</li>
+                </ul>
+
+                <h3>D. Transakční a herní data (Kredity a Tržiště)</h3>
+                <ul>
+                    <li><strong>Zůstatek kreditů (Spark Coins):</strong> Virtuální měna ukládaná lokálně (Shared Preferences) a v bezpečné herní databázi (Room DB).</li>
+                    <li><strong>Nákupní historie:</strong> Seznam zakoupených instrumentů, beatů nebo licencí děl jiných uživatelů na komunitním tržišti (Marketplace).</li>
+                </ul>
+
+                <h2>2A. SOULAD SE ZÁSADAMI GOOGLE PLAY</h2>
+                <p>Aplikace Spark Studio striktně splňuje veškerá pravidla Google Play Developer Program Policies:</p>
+                <ol>
+                    <li><strong>Bezpečnost citlivých finančních údajů:</strong> Číslo bankovního účtu a fakturační údaje jsou šifrovány a uchovávány lokálně v sandboxovém chráněném úložišti systému Android v souladu s nejvyššími standardy PCI-DSS a GDPR. Nikdy nejsou přenášeny nešifrovaně, ani prodávány či sdíleny s reklamními agenturami.</li>
+                    <li><strong>Garance prostředí zcela BEZ REKLAM (Ad-Free):</strong> Aplikace Spark Studio neobsahuje žádné reklamy, bannery ani vyskakovací okna. Nepoužíváme reklamní ID (AAID) a nesdílíme žádná uživatelská data s reklamními sítěmi třetích stran.</li>
+                    <li><strong>Absence neautorizovaného přístupu a phishingu:</strong> Aplikace neobsahuje žádné neoficiální přihlašovací brány, weby pro zneužití cizích účtů ani techniky pro tunelování přihlašovacích údajů. Veškerá integrace pro pokročilé vývojáře je omezena na standardní privátní API rozhraní nebo probíhá stoprocentně bezpečně offline.</li>
+                    <li><strong>Transparentnost a šifrování:</strong> Veškerý přenos textových promptů probíhá výhradně šifrovaným protokolem HTTPS k oficiálním serverům Google (Gemini API).</li>
+                </ol>
+
+                <h2>3. ZABEZPEČENÍ A ŠIFROVÁNÍ ÚDAJŮ</h2>
+                <p>Všechna data jsou uložena a přenášena s využitím standardních průmyslových bezpečnostních postupů:</p>
+                <ol>
+                    <li><strong>Šifrování HTTPS / TLS:</strong> Všechna komunikace s Gemini API a herními servery probíhá výhradně přes šifrované protokoly.</li>
+                    <li><strong>Místní šifrování dat:</strong> Citlivé preference (včetně uložení plnoletosti, bankovního spojení a zůstatku kreditů) jsou zabezpečeny v chráněném adresáři aplikace na systému Android.</li>
+                    <li><strong>Bezpečná databáze (Room):</strong> Projekty, nahrávky a nákupy jsou spravovány prostřednictvím izolovaného databázového jádra SQLite s omezeným přístupem třetích stran.</li>
+                </ol>
+
+                <h2>4. VAŠE PRÁVA DLE GDPR</h2>
+                <p>Jako uživatel z Evropského hospodářského prostoru (EHP) máte v souvislosti se svými osobními údaji následující práva:</p>
+                <ul>
+                    <li><strong>Právo na přístup:</strong> Můžete si vyžádat přehled veškerých dat, která o Vás uchováváme.</li>
+                    <li><strong>Právo na opravu:</strong> Kdykoli můžete změnit své autorské jméno, bankovní účet nebo profilové informace v záložce „Můj Profil“.</li>
+                    <li><strong>Právo na výmaz («Právo být zapomenut»):</strong> V záložce „Můj Profil“ se nachází tlačítko „Smazat veškerá data (Reset)“, které okamžitě a neodvolatelně odstraní veškeré nahrávky, projekty, transakční logy, bankovní údaje a profilová data z Vašeho zařízení.</li>
+                    <li><strong>Právo odvolat souhlas:</strong> Svůj souhlas s těmito zásadami můžete kdykoli odvolat odinstalováním aplikace nebo resetováním profilu.</li>
+                </ul>
+
+                <h2>5. SOUHLAS A ZMĚNY ZÁSAD</h2>
+                <p>Používáním aplikace Spark Studio vyjadřujete explicitní souhlas s těmito Zásadami ochrany osobních údajů. Tyto zásady můžeme příležitostně aktualizovat. O všech zásadních změnách Vás budeme informovat prostřednictvím oznámení přímo v aplikaci.</p>
+            </div>
+        </div>
+
+        <!-- Terms of Service Content -->
+        <div class="tab-content" id="content-terms">
+            <div class="legal-body">
+                <h1>SMLUVNÍ PODMÍNKY UŽÍVÁNÍ SLUŽBY</h1>
+                <div class="last-updated">Poslední aktualizace: Červen 2026</div>
+
+                <p>Vítejte v aplikaci <strong>Spark Studio</strong> (dále jen „Aplikace“). Tyto Smluvní podmínky (dále jen „Podmínky“) upravují práva a povinnosti mezi Vámi (dále jen „Uživatel“ nebo „Vy“) a vývojářským týmem Spark Studio (dále jen „Provozovatel“) při užívání naší mobilní platformy pro hudební mixáž, filmový střih, AI generování, prodej autorských děl prostřednictvím Tržiště a distribuci neexkluzivních hudebních licencí.</p>
+
+                <hr>
+
+                <h2>1. PŘIJETÍ PODMÍNEK A PLNOLETOST</h2>
+                <p>Instalací, registrací přezdívky, zadáním bankovního spojení nebo aktivním užíváním Aplikace vyjadřujete bezvýhradný souhlas s těmito Podmínkami a našimi Zásadami ochrany osobních údajů (GDPR).</p>
+                <ul>
+                    <li>Aplikace je určena uživatelům starším 18 let (nebo od 15 let s dohledem zákonného zástupce). Vstupem do sekce distribuce a vyplněním bankovního spojení potvrzujete splnění věkových a právních náležitostí podle zákonů České republiky.</li>
+                    <li>Pokud s Podmínkami nesouhlasíte, nejste oprávněni Aplikaci nadále používat.</li>
+                </ul>
+
+                <div class="payout-highlight">
+                    <h2>2. AUTORSKÁ DISTRIBUCE JEDNOTLIVÝCH SKLADEB (100% PRO AUTORA)</h2>
+                    <p>Prostřednictvím platformy Spark Studio mohou uživatelé nabízet své originální hudební skladby k licencování třetím stranám (např. tvůrcům videí, YouTuberům, herním vývojářům), kteří hledají neexkluzivní hudební licence pro své komerční či nekomerční audiovizuální projekty.</p>
+                    <ol>
+                        <li><strong>100% zisk pro Vás:</strong> Spark Studio jako provozovatel si nestrhává žádné provize z distribuce ani prodejů licencí – veškeré finanční prostředky (100 % určené částky) náleží výhradně vám jako autorovi hudby a jsou zaslány přímo na váš bankovní účet.</li>
+                        <li><strong>Nutnost bankovního spojení:</strong> Aby mohl zájemce o licenci zaslat platbu a mohl být vytvořen řádný licenční vztah, je nutné, aby autor v sekci „Můj Profil“ vyplnil své celé jméno příjemce (případně IČO, pokud podniká) a funkční číslo bankovního účtu v českém/slovenském národním formátu nebo ve tvaru IBAN. Bez vyplnění těchto údajů není technicky ani právně možné platby realizovat a licence zůstávají nedostupné.</li>
+                        <li><strong>Odpovědnost za zdanění příjmů:</strong> V souladu se zákonem o daních z příjmů ČR (č. 586/1992 Sb.) nesete jako příjemce finančních prostředků plnou odpovědnost za řádné přiznání a zdanění těchto autorských příjmů v rámci vašeho ročního daňového přiznání. Provozovatel aplikace neplní úlohu plátce srážkové daně a neodvádí žádné srážky.</li>
+                    </ol>
+                </div>
+
+                <h2>3. PRÁVNÍ RÁMEC NEEXKLUZIVNÍCH LICENCÍ (AUTORSKÝ ZÁKON ČR)</h2>
+                <p>Poskytnutí a nákup licencí na Spark Studio podléhá těmto právním úpravám podle autorského zákona ČR (č. 121/2000 Sb. a Nového občanského zákoníku č. 89/2012 Sb.):</p>
+                <ol>
+                    <li><strong>Neexkluzivní licence:</strong> Poskytnutím skladby k licencování udělujete zájemcům neexkluzivní, časově a místně neomezené právo k užití vašeho hudebního díla jako doprovodného audia pro jejich vlastní videa, streams, prezentace, hry nebo příspěvky na sociálních sítích. Jako autor si nadále ponecháváte plná autorská i vlastnická práva a skladbu můžete nadále libovolně šířit, prodávat nebo upravovat.</li>
+                    <li><strong>Prohlášení o původnosti:</strong> Uživatel se zavazuje, že skladba nabízená k distribuci je jeho vlastním, původním kreativním dílem a neporušuje autorská, osobnostní ani jiná práva třetích stran.</li>
+                </ol>
+
+                <h2>4. LICENČNÍ UJEDNÁNÍ PRO GENERATIVNÍ AI (CLOUD SYNTHESIS & GEMINI)</h2>
+                <p>Aplikace obsahuje integrované cloudové funkce pro generování textů a hudby na bázi umělé inteligence.</p>
+                <ol>
+                    <li><strong>Vlastnictví promptů:</strong> Uživatel prohlašuje, že jím zadané téma, nápady či texty neporušují autorská práva třetích stran, neobsahují vulgarismy a jsou v souladu se zákony České republiky.</li>
+                    <li><strong>Autorská práva k AI výstupům:</strong> V souladu s licenčními podmínkami integrovaných modelů přenechává Spark Obsah kompletní komerční práva na vygenerovanou píseň (hudba i vokály) uživateli, který generování inicioval, za předpokladu splnění podmínek registrace a ověření v sekci „Můj Profil“.</li>
+                </ol>
+
+                <h2>5. VIRTUÁLNÍ MĚNA (SPARK COINS / KREDITY)</h2>
+                <p>Aplikace využívá vnitřní herní a bodový systém vyjádřený v kreditech (Spark Mince / Spark Coins 🪙).</p>
+                <ul>
+                    <li>Kredity slouží k interní barterové a autorské výměně děl v rámci uzavřené simulované komunity Spark Studio. Kredity nemají reálnou peněžní hodnotu a nelze požadovat jejich vyplacení či směnu za reálné měny. Realizace skutečných finančních nákupů neexkluzivních licencí probíhá odděleně formou přímých bankovních převodů autorům v sekci distribuce.</li>
+                </ul>
+
+                <h2>6. COMPLIANCE GARANCE BEZ REKLAM (AD-FREE)</h2>
+                <ul>
+                    <li>Provozovatel garantuje, že Aplikace je a navždy zůstane 100% bez reklam. Nejsou zde implementovány žádné reklamní SDK (AdMob apod.), žádné reklamní bannery, ani vyskakovací videoreklamy pro přerušování kreativity uživatele.</li>
+                </ul>
+
+                <h2>7. OMEZENÍ ODPOVĚDNOSTI A ZÁVĚR</h2>
+                <p>Provozovatel neodpovídá za případné technické výpadky cloudových služeb ani za poškození projektů z důvodu nedostatku místa na telefonu uživatele. Tyto podmínky jsou platné a účinné od momentu spuštění verze 63.</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer Area -->
+    <footer>
+        <div class="footer-logo">⚡ <span>Spark Studio</span></div>
+        <p class="footer-text">Mobilní vícestopé nahrávací studio a pokročilý kreativní editor s podporou autorské distribuce bez provizí a garancí 100% prostředí bez reklam.</p>
+        
+        <ul class="footer-links">
+            <li><a href="#about">Úvod</a></li>
+            <li><a href="#features">Funkce</a></li>
+            <li><a href="#legal" onclick="switchTab('privacy')">Ochrana údajů (GDPR)</a></li>
+            <li><a href="#legal" onclick="switchTab('terms') font-weight: bold;">Smluvní podmínky</a></li>
+        </ul>
+
+        <a href="mailto:denulinkacervinkova@gmail.com" class="footer-contact">
+            📨 Podpora: denulinkacervinkova@gmail.com
+        </a>
+
+        <div class="copyright">
+            &copy; 2026 Spark Studio Developer Team. Všechna práva vyhrazena.<br>
+            Vyvinuto s ohledem na vysoké soukromí a autorskou svobodu tvůrců.
+        </div>
+    </footer>
+
+    <!-- Interactive Tabs Switching Script -->
+    <script>
+        function switchTab(type) {
+            // Get elements
+            const btnPrivacy = document.getElementById('btn-privacy');
+            const btnTerms = document.getElementById('btn-terms');
+            const contentPrivacy = document.getElementById('content-privacy');
+            const contentTerms = document.getElementById('content-terms');
+
+            if (type === 'privacy') {
+                btnPrivacy.classList.add('active');
+                btnTerms.classList.remove('active');
+                contentPrivacy.classList.add('active');
+                contentTerms.classList.remove('active');
+            } else if (type === 'terms') {
+                btnTerms.classList.add('active');
+                btnPrivacy.classList.remove('active');
+                contentTerms.classList.add('active');
+                contentPrivacy.classList.remove('active');
+            }
+
+            // Smooth scroll to legal section
+            document.getElementById('legal').scrollIntoView({ behavior: 'smooth' });
+        }
+    </script>
+</body>
+</html>

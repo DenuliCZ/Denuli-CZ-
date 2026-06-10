@@ -10,7 +10,7 @@ object LegalTexts {
         ---
 
         1. SPRÁVCE OSOBNÍCH ÚDAJŮ A KONTAKT
-        Správcem osobních údajů je provozovatel aplikace Spark Studio. V případě jakýchkoli dotazů, žádostí o smazání účtu nebo uplatnění Vašich práv nás můžete kontaktovat na e-mailové adrese: support@studiodenuli.spark nebo přímo v sekci „Můj Profil“ v aplikaci.
+        Správcem osobních údajů je provozovatel aplikace Spark Studio. V případě jakýchkoli dotazů, žádostí o smazání účtu nebo uplatnění Vašich práv nás můžete kontaktovat na e-mailové adrese: denulinkacervinkova@gmail.com nebo přímo v sekci „Můj Profil“ v aplikaci.
 
         ---
 

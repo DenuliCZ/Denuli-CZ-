@@ -21,8 +21,8 @@ android {
         applicationId = "com.studiodenuli.spark"
         minSdk = 26
         targetSdk = 35
-        versionCode = 62
-        versionName = "62.0"
+        versionCode = 63
+        versionName = "63.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
