@@ -80,6 +80,18 @@ class StudioViewModel(private val repository: StudioRepository) : ViewModel() {
     private val _userCredits = MutableStateFlow(500)
     val userCredits: StateFlow<Int> = _userCredits
 
+    private val _bankAccountNumber = MutableStateFlow("")
+    val bankAccountNumber: StateFlow<String> = _bankAccountNumber
+
+    private val _legalFullName = MutableStateFlow("")
+    val legalFullName: StateFlow<String> = _legalFullName
+
+    private val _icoNumber = MutableStateFlow("")
+    val icoNumber: StateFlow<String> = _icoNumber
+
+    private val _hasAgreedToLicensingTerms = MutableStateFlow(false)
+    val hasAgreedToLicensingTerms: StateFlow<Boolean> = _hasAgreedToLicensingTerms
+
     private val _communitySalesAlert = MutableStateFlow<String?>(null)
     val communitySalesAlert: StateFlow<String?> = _communitySalesAlert
 
@@ -257,7 +269,33 @@ class StudioViewModel(private val repository: StudioRepository) : ViewModel() {
         }
         val prefs = context.getSharedPreferences("spark_studio_prefs", Context.MODE_PRIVATE)
         _userCredits.value = prefs.getInt("user_credits", 500)
+        _bankAccountNumber.value = prefs.getString("bank_account_number", "") ?: ""
+        _legalFullName.value = prefs.getString("legal_full_name", "") ?: ""
+        _icoNumber.value = prefs.getString("ico_number", "") ?: ""
+        _hasAgreedToLicensingTerms.value = prefs.getBoolean("has_agreed_to_licensing_terms", false)
         prepopulateMarketIfNeeded()
+    }
+
+    fun updatePayoutDetails(
+        context: Context,
+        bankAccount: String,
+        fullName: String,
+        ico: String,
+        agreed: Boolean
+    ) {
+        _bankAccountNumber.value = bankAccount
+        _legalFullName.value = fullName
+        _icoNumber.value = ico
+        _hasAgreedToLicensingTerms.value = agreed
+
+        val prefs = context.getSharedPreferences("spark_studio_prefs", Context.MODE_PRIVATE)
+        prefs.edit().apply {
+            putString("bank_account_number", bankAccount)
+            putString("legal_full_name", fullName)
+            putString("ico_number", ico)
+            putBoolean("has_agreed_to_licensing_terms", agreed)
+            apply()
+        }
     }
 
     fun updateUserCredits(context: Context, credits: Int) {
@@ -275,15 +313,15 @@ class StudioViewModel(private val repository: StudioRepository) : ViewModel() {
             repository.allMarketplaceItems.first().let { current ->
                 if (current.isEmpty()) {
                     val defaultPacks = listOf(
-                        MarketplaceItem("beat_synthwave", "Retro Synthwave Beat", "Autentický analogový základ z 80. let (110 BPM)", 4.99, false, "Beat", 30),
-                        MarketplaceItem("beat_lofi", "Cozy Lo-Fi Study Chords", "Jemné, tlumené jazzové harmonie na klavír v retro šumu", 3.49, false, "Beat", 35),
-                        MarketplaceItem("beat_metal", "Brutal Metal Double-Kick", "Bleskové bicí, extrémní zkreslení kytar a agresivní tempo (140 BPM)", 4.99, false, "Beat", 35),
-                        MarketplaceItem("beat_edm", "Apex EDM Festival Drop", "Mohutné detuned supersaw syntezátory a pumpující klubový rytmus (128 BPM)", 3.99, false, "Beat", 40),
-                        MarketplaceItem("beat_country", "Texas Cabin Country Acoustic", "Vybrnkávání kytary, klidný rytmus a walking doprovod kontrabasu (90 BPM)", 3.49, false, "Beat", 35),
-                        MarketplaceItem("effect_daft", "Robot Vocoder Preset", "Přemění hlas do ikonické robotické formy ve stylu Daft Punk", 2.99, false, "Vocal Effect", 0),
-                        MarketplaceItem("effect_autotune", "Hyper-Tune Pro Filter", "Ultramoderní automatické rovnání tónů pro rap a pop", 3.99, false, "Vocal Effect", 0),
-                        MarketplaceItem("ambience_cyberpunk", "Cyber Neon Rain", "Přírodní déšť protkaný ozvěnou dálnic a neonových svitů", 1.99, false, "Ambience", 45),
-                        MarketplaceItem("ambience_zen", "Sacred Zen Garden", "Zvuky proudící čisté vody, bambusových zvonkoher a hluboké ticho", 1.99, false, "Ambience", 60)
+                        MarketplaceItem("beat_synthwave", "Retro Synthwave Beat", "Autentický analogový základ z 80. let (110 BPM)", 100.0, false, "Beat", 30),
+                        MarketplaceItem("beat_lofi", "Cozy Lo-Fi Study Chords", "Jemné, tlumené jazzové harmonie na klavír v retro šumu", 80.0, false, "Beat", 35),
+                        MarketplaceItem("beat_metal", "Brutal Metal Double-Kick", "Bleskové bicí, extrémní zkreslení kytar a agresivní tempo (140 BPM)", 100.0, false, "Beat", 35),
+                        MarketplaceItem("beat_edm", "Apex EDM Festival Drop", "Mohutné detuned supersaw syntezátory a pumpující klubový rytmus (128 BPM)", 90.0, false, "Beat", 40),
+                        MarketplaceItem("beat_country", "Texas Cabin Country Acoustic", "Vybrnkávání kytary, klidný rytmus a walking doprovod kontrabasu (90 BPM)", 80.0, false, "Beat", 35),
+                        MarketplaceItem("effect_daft", "Robot Vocoder Preset", "Přemění hlas do ikonické robotické formy ve stylu Daft Punk", 60.0, false, "Vocal Effect", 0),
+                        MarketplaceItem("effect_autotune", "Hyper-Tune Pro Filter", "Ultramoderní automatické rovnání tónů pro rap a pop", 90.0, false, "Vocal Effect", 0),
+                        MarketplaceItem("ambience_cyberpunk", "Cyber Neon Rain", "Přírodní déšť protkaný ozvěnou dálnic a neonových svitů", 50.0, false, "Ambience", 45),
+                        MarketplaceItem("ambience_zen", "Sacred Zen Garden", "Zvuky proudící čisté vody, bambusových zvonkoher a hluboké ticho", 50.0, false, "Ambience", 60)
                     )
                     repository.prepopulateMarketplace(defaultPacks)
                 }

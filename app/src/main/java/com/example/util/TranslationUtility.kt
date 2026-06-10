@@ -38,7 +38,7 @@ object TranslationUtility {
         "nav_video" to mapOf(Language.CZ to "Video", Language.EN to "Video"),
         "nav_chat" to mapOf(Language.CZ to "Chat", Language.EN to "Chat"),
         "nav_market" to mapOf(Language.CZ to "Tržiště", Language.EN to "Market"),
-        "nav_profile" to mapOf(Language.CZ to "Můj Denuli", Language.EN to "My Denuli"),
+        "nav_profile" to mapOf(Language.CZ to "Můj Spark", Language.EN to "My Spark"),
         
         "lyrics_tab" to mapOf(Language.CZ to "NÁVRH TEXTU PÍSNĚ", Language.EN to "SONG LYRICS DESIGN"),
         "lyrics_placeholder" to mapOf(Language.CZ to "Zadejte nebo vygeneruje text...", Language.EN to "Enter or generate lyrics..."),
@@ -73,8 +73,8 @@ object TranslationUtility {
         "legal_title" to mapOf(Language.CZ to "PODMÍNKY A SOUHLASY", Language.EN to "TERMS & VERIFICATION"),
         "legal_desc" to mapOf(Language.CZ to "Podmínky služby vyžadují ověření věku pro přístup k pokročilému AI generování.", Language.EN to "Terms of service require age verification to access deep generative AI workflows."),
         "age_verify" to mapOf(Language.CZ to "Potvrzuji, že mi je více než 15 let (nebo mám souhlas zákonného zástupce)", Language.EN to "I verify that I am over 15 years old (or have parental/guardian consent)"),
-        "github_web" to mapOf(Language.CZ to "Otevřít oficiální web na GitHubu 🌐", Language.EN to "Open official web on GitHub 🌐"),
-        "profile_title" to mapOf(Language.CZ to "PROFIL DENULI", Language.EN to "DENULI PROFILE"),
+        "github_web" to mapOf(Language.CZ to "Otevřít oficiální web Spark Studio 🌐", Language.EN to "Open official Spark Studio web 🌐"),
+        "profile_title" to mapOf(Language.CZ to "PROFIL SPARK STUDIO", Language.EN to "SPARK STUDIO PROFILE"),
         "stats" to mapOf(Language.CZ to "STATISTIKY TVORBY", Language.EN to "STUDIO STATISTICS"),
         "total_projects" to mapOf(Language.CZ to "Celkem písní:", Language.EN to "Total songs:"),
         "saved_projects" to mapOf(Language.CZ to "ULOŽENÉ SKLADBY", Language.EN to "SAVED PROJECTS")

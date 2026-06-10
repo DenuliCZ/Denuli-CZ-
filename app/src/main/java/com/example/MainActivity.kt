@@ -36,6 +36,7 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.layout.ContentScale
@@ -136,7 +137,7 @@ fun SparkStudioApp(
     paddingValues: PaddingValues
 ) {
     val context = LocalContext.current
-    var selectedTab by remember { mutableStateOf(0) } // Tabs: 0=Domů, 1=Studio, 2=Video, 3=Chat, 4=Tržiště, 5=Můj Denuli
+    var selectedTab by remember { mutableStateOf(0) } // Tabs: 0=Domů, 1=Studio, 2=Video, 3=Chat, 4=Tržiště, 5=Můj Spark
     val isAgeVerified by viewModel.isAgeVerified.collectAsStateWithLifecycle()
     val activeProject by viewModel.activeProject.collectAsStateWithLifecycle()
     val currentLang by TranslationUtility.currentLanguage.collectAsStateWithLifecycle()
@@ -403,12 +404,6 @@ fun SettingsDialog(
     onDismiss: () -> Unit
 ) {
     val context = LocalContext.current
-    val coroutineScope = rememberCoroutineScope()
-    var apiKeyInput by remember { mutableStateOf(com.example.data.network.GeminiClient.customApiKey) }
-    var passwordVisible by remember { mutableStateOf(false) }
-    var isTestingConnection by remember { mutableStateOf(false) }
-    var testResult by remember { mutableStateOf<String?>(null) }
-    var isTestSuccess by remember { mutableStateOf<Boolean?>(null) }
 
     val sharedPrefs = remember { context.getSharedPreferences("spark_settings", android.content.Context.MODE_PRIVATE) }
     var sunoBaseUrlInput by remember { mutableStateOf(sharedPrefs.getString("suno_base_url", "https://api.sunoapi.org") ?: "https://api.sunoapi.org") }
@@ -451,92 +446,40 @@ fun SettingsDialog(
                     shape = RoundedCornerShape(12.dp)
                 ) {
                     Column(modifier = Modifier.padding(12.dp)) {
-                        Text(
-                            text = "Klíče prostředí (Environment)",
-                            color = AccentNeonCyan,
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Spacer(modifier = Modifier.height(6.dp))
-                        Text(
-                            text = "Zabezpečený klíč GEMINI_API_KEY slouží k pohánění veškeré umělé inteligence v aplikaci (složení textů, generování scény, chat atd.). Pokud je nastaven, aplikace komunikuje přímo s moderními servery Google Gemini v reálném čase.",
-                            color = Color.LightGray,
-                            fontSize = 11.sp,
-                            lineHeight = 15.sp
-                        )
-                    }
-                }
-
-                // API Key Field Box
-                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = "VÁŠ GEMINI_API_KEY",
-                            color = Color.White,
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-
-                        // Dynamic visual connection status indicator
-                        val currentActiveKey = com.example.data.network.GeminiClient.customApiKey
-                        val hasKey = currentActiveKey.isNotBlank()
-                        val isConfiguredKeyMatch = apiKeyInput.trim() == currentActiveKey.trim()
-
-                        val (statusText, statusColor, statusBg) = when {
-                            isTestingConnection -> Triple("OVĚŘOVÁNÍ...", AccentNeonCyan, Color(0xFF131D24))
-                            isTestSuccess == true -> Triple("🟢 PŘIPOJENO", Color(0xFF00FFC2), Color(0xFF0C2417))
-                            isTestSuccess == false -> Triple("🔴 CHYBA SPOJENÍ", Color(0xFFFF5252), Color(0xFF240C12))
-                            !isConfiguredKeyMatch -> Triple("🟡 NEULOŽENÉ ZMĚNY", Color(0xFFFFCC00), Color(0xFF2B220B))
-                            hasKey -> Triple("🟢 PŘIPOJENO (ULOŽENO)", Color(0xFF00FFC2), Color(0xFF0C2417))
-                            else -> Triple("⚪ NEAKTIVNÍ", Color.Gray, Color(0xFF181524))
-                        }
-
-                        Box(
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(4.dp))
-                                .background(statusBg)
-                                .border(0.5.dp, statusColor.copy(alpha = 0.5f), RoundedCornerShape(4.dp))
-                                .padding(horizontal = 6.dp, vertical = 2.dp)
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(
-                                text = statusText,
-                                color = statusColor,
-                                fontSize = 9.sp,
+                                text = "SPARK CLOUD INTELLECT ⚡",
+                                color = AccentNeonCyan,
+                                fontSize = 11.sp,
                                 fontWeight = FontWeight.Bold
                             )
-                        }
-                    }
-                    OutlinedTextField(
-                        value = apiKeyInput,
-                        onValueChange = {
-                            apiKeyInput = it
-                            testResult = null
-                            isTestSuccess = null
-                        },
-                        placeholder = { Text("AIzaSy...", color = Color.Gray, fontSize = 12.sp) },
-                        singleLine = true,
-                        visualTransformation = if (passwordVisible) androidx.compose.ui.text.input.VisualTransformation.None else androidx.compose.ui.text.input.PasswordVisualTransformation(),
-                        trailingIcon = {
-                            IconButton(onClick = { passwordVisible = !passwordVisible }) {
-                                Icon(
-                                    imageVector = if (passwordVisible) Icons.Default.Edit else Icons.Default.Lock,
-                                    contentDescription = if (passwordVisible) "Skrýt" else "Zobrazit",
-                                    tint = AccentNeonCyan
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(4.dp))
+                                    .background(Color(0xFF0C2417))
+                                    .border(0.5.dp, Color(0xFF00FFC2).copy(alpha = 0.5f), RoundedCornerShape(4.dp))
+                                    .padding(horizontal = 6.dp, vertical = 2.dp)
+                            ) {
+                                Text(
+                                    text = "🟢 PREMIUM AKTIVNÍ",
+                                    color = Color(0xFF00FFC2),
+                                    fontSize = 8.sp,
+                                    fontWeight = FontWeight.Bold
                                 )
                             }
-                        },
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedTextColor = Color.White,
-                            unfocusedTextColor = Color.White,
-                            focusedBorderColor = AccentNeonCyan,
-                            unfocusedBorderColor = Color(0xFF251A4D)
-                        ),
-                        modifier = Modifier.fillMaxWidth().testTag("settings_api_key_field")
-                    )
+                        }
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Text(
+                            text = "Umělá inteligence pro psaní písní, analýzu a vizualizace je plně přednastavena a licencována. Nemusíte zadávat žádné vlastní technické klíče.",
+                            color = Color.LightGray,
+                            fontSize = 10.sp,
+                            lineHeight = 14.sp
+                        )
+                    }
                 }
 
                 // --- HUDUBNÍ PROFIL A AUDIO SEKCION ---
@@ -673,157 +616,8 @@ fun SettingsDialog(
                     }
                 }
 
-                // Testing block / Connection state indicator
-                if (testResult != null) {
-                    Card(
-                        colors = CardDefaults.cardColors(
-                            containerColor = if (isTestSuccess == true) Color(0xFF0C2417) else Color(0xFF240C12)
-                        ),
-                        border = BorderStroke(1.dp, if (isTestSuccess == true) Color(0xFF00FFC2) else Color(0xFFFF5252)),
-                        shape = RoundedCornerShape(10.dp)
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(10.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            Text(
-                                text = if (isTestSuccess == true) "✅" else "❌",
-                                fontSize = 16.sp
-                            )
-                            Text(
-                                text = testResult ?: "",
-                                color = Color.White,
-                                fontSize = 11.sp,
-                                lineHeight = 14.sp,
-                                modifier = Modifier.weight(1f)
-                              )
-                        }
-                    }
-                }
 
-                // Actions Layout
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    // Save key locally and run immediate validation
-                    Button(
-                        onClick = {
-                            val p = context.getSharedPreferences("spark_settings", android.content.Context.MODE_PRIVATE)
-                            p.edit()
-                                .putString("gemini_key", apiKeyInput.trim())
-                                .putString("suno_base_url", sunoBaseUrlInput.trim())
-                                .putString("suno_api_key", sunoApiKeyInput.trim())
-                                .putString("audio_engine", selectedEngineInput)
-                                .apply()
 
-                            if (apiKeyInput.trim().isBlank()) {
-                                Toast.makeText(context, "Nastavení uložena!", Toast.LENGTH_SHORT).show()
-                                return@Button
-                            }
-                            isTestingConnection = true
-                            testResult = "Právě se připojuji k API serverům pro uložení a ověření..."
-                            isTestSuccess = null
-                            coroutineScope.launch {
-                                try {
-                                    val originalKey = com.example.data.network.GeminiClient.customApiKey
-                                    com.example.data.network.GeminiClient.customApiKey = apiKeyInput.trim()
-                                    val response = com.example.data.network.GeminiClient.generateText(
-                                        "Zkontroluj toto spojení. Odpověz pouze jediným slovem: 'OK'."
-                                    )
-                                    isTestingConnection = false
-                                    if (response.contains("OK", ignoreCase = true) || response.isNotBlank()) {
-                                        isTestSuccess = true
-                                        testResult = "Klíče uloženy a Gemini API ověřeno! 🎉"
-                                    } else {
-                                        isTestSuccess = false
-                                        testResult = "Změny uloženy, ale test vrátil neočekávanou stavovou odpověď."
-                                    }
-                                } catch (e: Exception) {
-                                    isTestingConnection = false
-                                    isTestSuccess = false
-                                    testResult = "Změny uloženy, ale test spojení selhal: ${e.message}"
-                                }
-                            }
-                        },
-                        colors = ButtonDefaults.buttonColors(containerColor = AccentNeonCyan),
-                        enabled = !isTestingConnection,
-                        modifier = Modifier.weight(1f).testTag("settings_save_api_key_btn")
-                    ) {
-                        Text("ULOŽIT NASTAVENÍ 💾", color = Color.Black, fontWeight = FontWeight.Bold, fontSize = 10.sp)
-                    }
-
-                    // Test key function button
-                    Button(
-                        onClick = {
-                            if (apiKeyInput.trim().isBlank()) {
-                                Toast.makeText(context, "Nejprve zadejte API klíč pro otestování", Toast.LENGTH_SHORT).show()
-                                return@Button
-                            }
-                            isTestingConnection = true
-                            testResult = "Právě se připojuji k API serverům..."
-                            isTestSuccess = null
-                            coroutineScope.launch {
-                                try {
-                                    val originalKey = com.example.data.network.GeminiClient.customApiKey
-                                    com.example.data.network.GeminiClient.customApiKey = apiKeyInput.trim()
-                                    val response = com.example.data.network.GeminiClient.generateText(
-                                        "Zkontroluj toto spojení. Odpověz pouze jediným slovem: 'OK'."
-                                    )
-                                    isTestingConnection = false
-                                    if (response.contains("OK", ignoreCase = true) || response.isNotBlank()) {
-                                        isTestSuccess = true
-                                        testResult = "Zkouška úspěšná! Spojení se servery Google Gemini funguje bezchybně. 🎉 Odpověď modelu: $response"
-                                        val p = context.getSharedPreferences("spark_settings", android.content.Context.MODE_PRIVATE)
-                                        p.edit().putString("gemini_key", apiKeyInput.trim()).apply()
-                                    } else {
-                                        isTestSuccess = false
-                                        testResult = "API klíč vrátil neúplnou odpověď: $response"
-                                        com.example.data.network.GeminiClient.customApiKey = originalKey
-                                    }
-                                } catch (e: Exception) {
-                                    isTestingConnection = false
-                                    isTestSuccess = false
-                                    testResult = "Připojení selhalo: ${e.message}"
-                                }
-                            }
-                        },
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF261D45)),
-                        enabled = !isTestingConnection,
-                        modifier = Modifier.weight(1f).border(1.dp, Color(0xFF32245C), RoundedCornerShape(100)).testTag("settings_test_api_key_btn")
-                    ) {
-                        if (isTestingConnection) {
-                            CircularProgressIndicator(modifier = Modifier.size(12.dp), strokeWidth = 1.5.dp, color = AccentNeonCyan)
-                        } else {
-                            Text("TEST SPOJENÍ 🔍", color = AccentNeonCyan, fontWeight = FontWeight.Bold, fontSize = 10.sp)
-                        }
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(4.dp))
-
-                // Explain environment setup alternative
-                Card(
-                    colors = CardDefaults.cardColors(containerColor = Color(0xFF0F0A1F)),
-                    shape = RoundedCornerShape(8.dp)
-                ) {
-                    Column(modifier = Modifier.padding(10.dp)) {
-                        Text(
-                            text = "💡 Doporučená integrace pro Google AI Studio",
-                            color = Color.LightGray,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 11.sp
-                        )
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            text = "Klíč můžete rovněž zadat do nativního Secrets panelu (Tajemství) přímo v Google AI Studio (ikona klíče v levé boční liště) pod názvem GEMINI_API_KEY. Náš build systém ho poté automaticky načte jako systémovou proměnnou prostředí při každém sestavení aplikace, což je mnohem bezpečnější pro produkční nasazení.",
-                            color = Color.Gray,
-                            fontSize = 10.sp,
-                            lineHeight = 14.sp
-                        )
-                    }
-                }
             }
         },
         confirmButton = {
@@ -831,12 +625,10 @@ fun SettingsDialog(
                 onClick = {
                     val p = context.getSharedPreferences("spark_settings", android.content.Context.MODE_PRIVATE)
                     p.edit()
-                        .putString("gemini_key", apiKeyInput.trim())
                         .putString("suno_base_url", sunoBaseUrlInput.trim())
                         .putString("suno_api_key", sunoApiKeyInput.trim())
                         .putString("audio_engine", selectedEngineInput)
                         .apply()
-                    com.example.data.network.GeminiClient.customApiKey = apiKeyInput.trim()
                     onDismiss()
                 },
                 colors = ButtonDefaults.buttonColors(containerColor = AccentNeonCyan)
@@ -1517,19 +1309,29 @@ fun StudioTab(
                                 verticalAlignment = Alignment.CenterVertically,
                                 modifier = Modifier.weight(1f)
                             ) {
+                                val projCoverFile = remember(proj.id) { File(context.filesDir, "cover_${proj.id}.png") }
                                 Box(
                                     modifier = Modifier
                                         .size(40.dp)
-                                        .clip(CircleShape)
+                                        .clip(RoundedCornerShape(8.dp))
                                         .background(Color(0xFF21133B)),
                                     contentAlignment = Alignment.Center
                                 ) {
-                                    Icon(
-                                        imageVector = Icons.Default.PlayArrow,
-                                        contentDescription = "Project icon",
-                                        tint = AccentNeonCyan,
-                                        modifier = Modifier.size(20.dp)
-                                    )
+                                    if (projCoverFile.exists()) {
+                                        AsyncImage(
+                                            model = projCoverFile,
+                                            contentDescription = "Project Cover Art",
+                                            modifier = Modifier.fillMaxSize(),
+                                            contentScale = ContentScale.Crop
+                                        )
+                                    } else {
+                                        Icon(
+                                            imageVector = Icons.Default.PlayArrow,
+                                            contentDescription = "Project icon",
+                                            tint = AccentNeonCyan,
+                                            modifier = Modifier.size(20.dp)
+                                        )
+                                    }
                                 }
                                 Spacer(modifier = Modifier.width(12.dp))
                                 Column {
@@ -3835,6 +3637,347 @@ fun StudioTab(
                         }
                     }
                 }
+                Spacer(modifier = Modifier.height(14.dp))
+            }
+
+            // F. AI Cover Art Generator Section
+            item {
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = CardBackground),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .border(1.dp, Color(0xFF261D45), RoundedCornerShape(16.dp)),
+                    shape = RoundedCornerShape(16.dp)
+                ) {
+                    var coverPromptInput by remember { mutableStateOf("") }
+                    var selectedStyle by remember { mutableStateOf("Retro Synthwave") }
+                    val stylesList = listOf(
+                        "Retro Synthwave", 
+                        "Cosmic Odyssey", 
+                        "Minimalist Vector", 
+                        "Heavy Metal Inferno", 
+                        "Dreamy Ambient", 
+                        "Acid Neon"
+                    )
+                    
+                    var customTitleOverlay by remember(proj.title) { mutableStateOf(proj.title) }
+                    var customSubOverlay by remember { mutableStateOf("SPARK ARTIST ORIGINAL") }
+                    var textSliderSize by remember { mutableStateOf(26f) }
+                    var hueShiftSlider by remember { mutableStateOf(0f) }
+                    var showGridLines by remember { mutableStateOf(true) }
+                    
+                    var isProcessingCover by remember { mutableStateOf(false) }
+                    val coroutineScope = rememberCoroutineScope()
+                    
+                    val coverFile = remember(proj.id) { File(context.filesDir, "cover_${proj.id}.png") }
+                    var coverFileExists by remember(proj.id) { mutableStateOf(coverFile.exists()) }
+                    var currentCoverVersion by remember { mutableStateOf(0) }
+
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Create,
+                                contentDescription = "Cover Gen",
+                                tint = AccentNeonCyan,
+                                modifier = Modifier.size(22.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "KREATIVNÍ GENERÁTOR OBALŮ (COVER ART) 🎨",
+                                fontWeight = FontWeight.Bold,
+                                color = Color.White,
+                                fontSize = 14.sp
+                            )
+                        }
+                        
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Text(
+                            text = "Navrhněte a vygenerujte jedinečný obal s vlastním motivem, grafickým stylem a textovými filtry přímo ze studia.",
+                            fontSize = 11.sp,
+                            color = Color(0xFF908DAF)
+                        )
+                        
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        // Live preview box or saved cover image
+                        Box(
+                            modifier = Modifier
+                                .size(240.dp)
+                                .align(Alignment.CenterHorizontally)
+                                .clip(RoundedCornerShape(12.dp))
+                                .border(1.5.dp, AccentNeonCyan, RoundedCornerShape(12.dp))
+                                .background(Color(0xFF090412)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            if (isProcessingCover) {
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                    CircularProgressIndicator(color = AccentNeonCyan)
+                                    Spacer(modifier = Modifier.height(10.dp))
+                                    Text("Generuji grafické vrstvy...", color = Color.Gray, fontSize = 11.sp)
+                                }
+                            } else {
+                                val previewBitmap = remember(
+                                    customTitleOverlay,
+                                    customSubOverlay,
+                                    selectedStyle,
+                                    coverPromptInput,
+                                    textSliderSize,
+                                    hueShiftSlider,
+                                    showGridLines,
+                                    currentCoverVersion,
+                                    proj.id
+                                ) {
+                                    com.example.util.CoverArtRenderer.renderCoverArt(
+                                        title = customTitleOverlay,
+                                        subtitle = customSubOverlay,
+                                        artPreset = selectedStyle,
+                                        prompt = coverPromptInput,
+                                        fontSizeScale = textSliderSize,
+                                        hueShift = hueShiftSlider,
+                                        showGrid = showGridLines
+                                    )
+                                }
+                                
+                                Image(
+                                    bitmap = previewBitmap.asImageBitmap(),
+                                    contentDescription = "Cover Art Preview",
+                                    modifier = Modifier.fillMaxSize(),
+                                    contentScale = ContentScale.Crop
+                                )
+                            }
+                        }
+
+                        if (coverFileExists) {
+                            Spacer(modifier = Modifier.height(6.dp))
+                            Text(
+                                text = "✅ AKTIVNÍ OBAL BYL VYGENEROVÁN A ULOŽEN",
+                                color = Color(0xFF00FFCC),
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.align(Alignment.CenterHorizontally)
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(14.dp))
+                        
+                        // Style Topic input
+                        Text("MUSE PROMPT / STYLIZAČNÍ POPIS:", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                        Spacer(modifier = Modifier.height(4.dp))
+                        OutlinedTextField(
+                            value = coverPromptInput,
+                            onValueChange = { coverPromptInput = it },
+                            placeholder = { Text("např. osamělý jezdec, kosmická mlhovina, neonová růže...", fontSize = 12.sp, color = Color.Gray) },
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = AccentNeonCyan,
+                                unfocusedBorderColor = Color(0xFF231846),
+                                focusedTextColor = Color.White,
+                                unfocusedTextColor = Color.White
+                            ),
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+
+                        Spacer(modifier = Modifier.height(10.dp))
+
+                        // Theme Preset Selection
+                        Text("ZVOLTE VIZUÁLNÍ PRESET:", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .horizontalScroll(rememberScrollState()),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            stylesList.forEach { styleName ->
+                                val isSel = selectedStyle == styleName
+                                Box(
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(8.dp))
+                                        .background(if (isSel) AccentNeonCyan else Color(0xFF1E133B))
+                                        .clickable { selectedStyle = styleName }
+                                        .padding(horizontal = 12.dp, vertical = 8.dp)
+                                ) {
+                                    Text(
+                                        text = styleName,
+                                        color = if (isSel) Color.Black else Color.White,
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        // Custom dynamic controls
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text("NADPIS (NA OBALU):", color = Color.LightGray, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                                Spacer(modifier = Modifier.height(4.dp))
+                                OutlinedTextField(
+                                    value = customTitleOverlay,
+                                    onValueChange = { customTitleOverlay = it },
+                                    colors = OutlinedTextFieldDefaults.colors(
+                                        focusedBorderColor = AccentNeonCyan,
+                                        focusedTextColor = Color.White,
+                                        unfocusedTextColor = Color.White
+                                    ),
+                                    singleLine = true,
+                                    textStyle = TextStyle(fontSize = 12.sp)
+                                )
+                            }
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text("PODTISK / POPIS:", color = Color.LightGray, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                                Spacer(modifier = Modifier.height(4.dp))
+                                OutlinedTextField(
+                                    value = customSubOverlay,
+                                    onValueChange = { customSubOverlay = it },
+                                    colors = OutlinedTextFieldDefaults.colors(
+                                        focusedBorderColor = AccentNeonCyan,
+                                        focusedTextColor = Color.White,
+                                        unfocusedTextColor = Color.White
+                                    ),
+                                    singleLine = true,
+                                    textStyle = TextStyle(fontSize = 12.sp)
+                                )
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(10.dp))
+
+                        // Sliders
+                        Text("FILTRY A VELIKOST TEXTU:", color = Color.LightGray, fontSize = 10.sp)
+                        Spacer(modifier = Modifier.height(4.dp))
+                        
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text("Velikost písma: ${textSliderSize.toInt()}", color = Color.Gray, fontSize = 11.sp, modifier = Modifier.width(110.dp))
+                            Slider(
+                                value = textSliderSize,
+                                onValueChange = { textSliderSize = it },
+                                valueRange = 18f..40f,
+                                modifier = Modifier.weight(1f),
+                                colors = SliderDefaults.colors(thumbColor = AccentNeonCyan, activeTrackColor = AccentNeonCyan)
+                            )
+                        }
+
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text("Posuv barvy: ${hueShiftSlider.toInt()}°", color = Color.Gray, fontSize = 11.sp, modifier = Modifier.width(110.dp))
+                            Slider(
+                                value = hueShiftSlider,
+                                onValueChange = { hueShiftSlider = it },
+                                valueRange = 0f..360f,
+                                modifier = Modifier.weight(1f),
+                                colors = SliderDefaults.colors(thumbColor = AccentNeonCyan, activeTrackColor = AccentNeonCyan)
+                            )
+                        }
+
+                        if (selectedStyle == "Retro Synthwave") {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text("Zobrazit retro mřížku (Grid):", color = Color.LightGray, fontSize = 11.sp)
+                                Switch(
+                                    checked = showGridLines,
+                                    onCheckedChange = { showGridLines = it },
+                                    colors = SwitchDefaults.colors(checkedThumbColor = AccentNeonCyan, checkedTrackColor = Color(0xFF133B36))
+                                )
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(14.dp))
+
+                        // Actions
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            Button(
+                                onClick = {
+                                    coroutineScope.launch {
+                                        isProcessingCover = true
+                                        try {
+                                            val geminiPromptPrfx = "Analyze song title '$customTitleOverlay' and theme description '${coverPromptInput.ifBlank { "creative abstract art" }}'."
+                                            val geminiPromptSuff = "Suggest the single best design template from this list: Retro Synthwave, Cosmic Odyssey, Minimalist Vector, Heavy Metal Inferno, Dreamy Ambient, Acid Neon. Answer with ONLY the exact name of that chosen style without any extra characters."
+                                            
+                                            val recommendedStyle = com.example.data.network.GeminiClient.generateText("$geminiPromptPrfx $geminiPromptSuff")
+                                            val matchedStyle = stylesList.firstOrNull { 
+                                                recommendedStyle.trim().lowercase().contains(it.lowercase()) 
+                                            } ?: selectedStyle
+                                            
+                                            selectedStyle = matchedStyle
+                                            
+                                            val subPrompt = "Suggest a very short, stylish english subtitle for an album cover art for the song '$customTitleOverlay' under design style '$selectedStyle'. Print ONLY the subtitle in uppercase letters (max 4 words), no quotes."
+                                            val recommendedSub = com.example.data.network.GeminiClient.generateText(subPrompt)
+                                            if (recommendedSub.isNotBlank() && recommendedSub.length < 35) {
+                                                customSubOverlay = recommendedSub.trim().replace("\"", "").uppercase()
+                                            }
+                                            
+                                            Toast.makeText(context, "Spark AI dokončil analýzu a nastavil styl: $matchedStyle! ✨🎨", Toast.LENGTH_SHORT).show()
+                                        } catch (e: Exception) {
+                                            selectedStyle = when (proj.genre) {
+                                                "Pop" -> "Dreamy Ambient"
+                                                "Synthwave" -> "Retro Synthwave"
+                                                "Rock" -> "Heavy Metal Inferno"
+                                                "Metal" -> "Heavy Metal Inferno"
+                                                "EDM" -> "Acid Neon"
+                                                else -> "Cosmic Odyssey"
+                                            }
+                                            Toast.makeText(context, "Aktivován offline tvůrčí návrh vzhledu.", Toast.LENGTH_SHORT).show()
+                                        } finally {
+                                            isProcessingCover = false
+                                        }
+                                    }
+                                },
+                                enabled = !isProcessingCover,
+                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1C123D)),
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Text("AI NÁVRH STYLU ✨", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                            }
+
+                            Button(
+                                onClick = {
+                                    coroutineScope.launch {
+                                        isProcessingCover = true
+                                        try {
+                                            val finalBitmap = com.example.util.CoverArtRenderer.renderCoverArt(
+                                                title = customTitleOverlay,
+                                                subtitle = customSubOverlay,
+                                                artPreset = selectedStyle,
+                                                prompt = coverPromptInput,
+                                                fontSizeScale = textSliderSize,
+                                                hueShift = hueShiftSlider,
+                                                showGrid = showGridLines
+                                            )
+                                            val saved = com.example.util.CoverArtRenderer.saveCoverBitmap(finalBitmap, coverFile)
+                                            if (saved) {
+                                                coverFileExists = true
+                                                currentCoverVersion++
+                                                Toast.makeText(context, "Obal úspěšně vygenerován a uložen! 🎨📁", Toast.LENGTH_LONG).show()
+                                            } else {
+                                                Toast.makeText(context, "Zápis souboru selhal", Toast.LENGTH_SHORT).show()
+                                            }
+                                        } catch (e: Exception) {
+                                            Toast.makeText(context, "Selhalo: ${e.message}", Toast.LENGTH_SHORT).show()
+                                        } finally {
+                                            isProcessingCover = false
+                                        }
+                                    }
+                                },
+                                enabled = !isProcessingCover,
+                                colors = ButtonDefaults.buttonColors(containerColor = AccentNeonCyan, contentColor = Color.Black),
+                                modifier = Modifier.weight(1.1f)
+                            ) {
+                                Text("ULOŽIT OBAL DO ALBUMU 🎨", fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    }
+                }
                 Spacer(modifier = Modifier.height(20.dp))
             }
         }
@@ -5829,7 +5972,7 @@ fun MarketplaceTab(
                                 valueRange = 5f..500f,
                                 colors = SliderDefaults.colors(thumbColor = AccentNeonCyan, activeTrackColor = AccentNeonCyan)
                             )
-                            Text("*Uživatelé her a tvůrci na YouTube si mohou zakoupit neexkluzivní licenci k vašemu videoklipu pro podklad.", color = Color.Gray, fontSize = 8.sp)
+                            Text("💡 Tuto cenu zaplatí externí zájemci (např. tvůrci videí, YouTubeři nebo vývojáři her), kteří si chtějí zakoupit neexkluzivní licenci k Vaší hudbě pro své projekty. Vy jako autor získáte 100 % této částky přímo na svůj účet!", color = Color.LightGray, fontSize = 9.sp, lineHeight = 12.sp)
                         }
                     }
                 }
@@ -5857,20 +6000,22 @@ fun MarketplaceTab(
                             val estimatedMonTotal = streamEarnings + licenseSales
 
                             Spacer(modifier = Modifier.height(10.dp))
-                            Text("📊 ODHADY MĚSÍČNÍCH TRŽEB SMLOUVY:", color = AccentNeonCyan, fontSize = 10.sp, fontWeight = FontWeight.Bold)
-                            Spacer(modifier = Modifier.height(4.dp))
+                            Text("📊 PODÍLY A ODHADY VAŠICH VÝDĚLKŮ (K VYPLACENÍ):", color = AccentNeonCyan, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text("Jedná se o finanční prostředky, které jako autor obdržíte na svůj bankovní účet. Spark Studio si nestrhává žádné provize z prodeje ani distribuce – 100 % zisku náleží vám!", color = Color.LightGray, fontSize = 9.sp, lineHeight = 12.sp)
+                            Spacer(modifier = Modifier.height(10.dp))
                             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                Text("Streaming Royalties:", color = Color.LightGray, fontSize = 10.sp)
-                                Text("${streamEarnings.toInt()} Kč", color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                                Text("Příjmy ze streamování (Kč):", color = Color.LightGray, fontSize = 10.sp)
+                                Text("+ ${streamEarnings.toInt()} Kč", color = Color(0xFF00FFC2), fontSize = 10.sp, fontWeight = FontWeight.Bold)
                             }
                             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                Text("Prodeje licencí k videoklipu:", color = Color.LightGray, fontSize = 10.sp)
-                                Text("${licenseSales.toInt()} Kč", color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                                Text("Příjmy z licencí pro reklamy (Kč):", color = Color.LightGray, fontSize = 10.sp)
+                                Text("+ ${licenseSales.toInt()} Kč", color = Color(0xFF00FFC2), fontSize = 10.sp, fontWeight = FontWeight.Bold)
                             }
                             HorizontalDivider(color = Color(0xFF2C1E55), modifier = Modifier.padding(vertical = 4.dp))
                             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                Text("Celkový měsíční odhad:", color = AccentNeonCyan, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                                Text("${estimatedMonTotal.toInt()} Kč", color = AccentNeonCyan, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                Text("Váš čistý měsíční zisk (odhad):", color = AccentNeonCyan, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                Text("${estimatedMonTotal.toInt()} Kč", color = Color(0xFF00FFC2), fontSize = 11.sp, fontWeight = FontWeight.Bold)
                             }
                         }
                     }
@@ -6048,7 +6193,7 @@ fun MarketplaceTab(
                                 Text(item.description, color = Color.Gray, fontSize = 12.sp)
                                 Spacer(modifier = Modifier.height(4.dp))
                                 Text(
-                                    text = "${TranslationUtility.get("price")} $${item.price}",
+                                    text = "${TranslationUtility.get("price")} ${item.price.toInt()} 🪙",
                                     color = AccentNeonCyan,
                                     fontSize = 13.sp,
                                     fontWeight = FontWeight.Bold
@@ -6283,6 +6428,23 @@ fun LegalAndProfileTab(
     val verified by viewModel.isAgeVerified.collectAsStateWithLifecycle()
     val allProjects by viewModel.allProjects.collectAsStateWithLifecycle()
 
+    val bankAccountNumberState by viewModel.bankAccountNumber.collectAsStateWithLifecycle()
+    val legalFullNameState by viewModel.legalFullName.collectAsStateWithLifecycle()
+    val icoNumberState by viewModel.icoNumber.collectAsStateWithLifecycle()
+    val hasAgreedState by viewModel.hasAgreedToLicensingTerms.collectAsStateWithLifecycle()
+
+    var bankInput by remember { mutableStateOf("") }
+    var nameInput by remember { mutableStateOf("") }
+    var icoInput by remember { mutableStateOf("") }
+    var agreeInput by remember { mutableStateOf(false) }
+
+    LaunchedEffect(bankAccountNumberState, legalFullNameState, icoNumberState, hasAgreedState) {
+        bankInput = bankAccountNumberState
+        nameInput = legalFullNameState
+        icoInput = icoNumberState
+        agreeInput = hasAgreedState
+    }
+
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
@@ -6297,6 +6459,182 @@ fun LegalAndProfileTab(
                 fontSize = 18.sp
             )
             Spacer(modifier = Modifier.height(4.dp))
+        }
+
+        // Payout and Legal details Card
+        item {
+            Card(
+                colors = CardDefaults.cardColors(containerColor = CardBackground),
+                border = BorderStroke(1.dp, Color(0xFF2E1A5E)),
+                shape = RoundedCornerShape(16.dp),
+                modifier = Modifier.fillMaxWidth().testTag("profile_payout_details_card")
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("🏦 ", fontSize = 16.sp)
+                        Text(
+                            text = "BANKOVNÍ SPOJENÍ PRO VYPLÁCENÍ ODMĚN",
+                            fontWeight = FontWeight.Bold,
+                            color = AccentNeonCyan,
+                            fontSize = 12.sp
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Text(
+                        text = "V souladu s autorským zákonem (č. 121/2000 Sb.) a občanským zákoníkem ČR potřebujeme vaše identifikační a bankovní údaje pro legální bezproblémové proplacení 100 % zisku z prodeje licencí vaší hudby ze sekce distribuce.",
+                        color = Color.LightGray,
+                        fontSize = 11.sp,
+                        lineHeight = 15.sp
+                    )
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    Text(
+                        text = "CELÉ JMÉNO PŘÍJEMCE NEBO NÁZEV FIRMY:",
+                        color = Color.LightGray,
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    OutlinedTextField(
+                        value = nameInput,
+                        onValueChange = { nameInput = it },
+                        placeholder = { Text("např. Mgr. Jan Novák", fontSize = 12.sp, color = Color.Gray) },
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = AccentNeonCyan,
+                            unfocusedBorderColor = Color(0xFF231846),
+                            focusedTextColor = Color.White,
+                            unfocusedTextColor = Color.White
+                        ),
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    Text(
+                        text = "IČO (NEPOVINNÉ - POKUD PODNIKÁTE):",
+                        color = Color.LightGray,
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    OutlinedTextField(
+                        value = icoInput,
+                        onValueChange = { icoInput = it },
+                        placeholder = { Text("např. 12345678", fontSize = 12.sp, color = Color.Gray) },
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = AccentNeonCyan,
+                            unfocusedBorderColor = Color(0xFF231846),
+                            focusedTextColor = Color.White,
+                            unfocusedTextColor = Color.White
+                        ),
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    Text(
+                        text = "ČÍSLO BANKOVNÍHO ÚČTU (CZ/SK NEBO IBAN):",
+                        color = Color.LightGray,
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    OutlinedTextField(
+                        value = bankInput,
+                        onValueChange = { bankInput = it },
+                        placeholder = { Text("např. 123456789/0100 nebo IBAN", fontSize = 12.sp, color = Color.Gray) },
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = AccentNeonCyan,
+                            unfocusedBorderColor = Color(0xFF231846),
+                            focusedTextColor = Color.White,
+                            unfocusedTextColor = Color.White
+                        ),
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { agreeInput = !agreeInput }
+                            .background(Color(0xFF0F0A1F), RoundedCornerShape(8.dp))
+                            .padding(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Checkbox(
+                            checked = agreeInput,
+                            onCheckedChange = { agreeInput = it },
+                            colors = CheckboxDefaults.colors(checkedColor = AccentNeonCyan)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = "Souhlasím s licenční smlouvou a potvrzuji správnost bankovního spojení. Beru na vědomí, že nesu plnou odpovědnost za přiznání a zdanění mých příjmů.",
+                            color = Color.White,
+                            fontSize = 10.sp,
+                            lineHeight = 13.sp,
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    Button(
+                        onClick = {
+                            if (nameInput.isBlank() || bankInput.isBlank()) {
+                                Toast.makeText(context, "Vyplňte prosím celé jméno a číslo bankovního účtu pro převody!", Toast.LENGTH_LONG).show()
+                            } else if (!agreeInput) {
+                                Toast.makeText(context, "Pro uložení účtu musíte zaškrtnout souhlas s odpovědností za zdanění!", Toast.LENGTH_LONG).show()
+                            } else {
+                                viewModel.updatePayoutDetails(context, bankInput, nameInput, icoInput, agreeInput)
+                                Toast.makeText(context, "Fakturační údaje a číslo účtu byly bezpečně uloženy! 🏦✓", Toast.LENGTH_SHORT).show()
+                            }
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = AccentNeonCyan, contentColor = Color.Black),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("ULOŽIT BANKOVNÍ SPOJENÍ 💾", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+        }
+
+        // Ad-Free Guarantee Card
+        item {
+            Card(
+                colors = CardDefaults.cardColors(containerColor = CardBackground),
+                border = BorderStroke(1.dp, Color(0xFF133B27)),
+                shape = RoundedCornerShape(16.dp),
+                modifier = Modifier.fillMaxWidth().testTag("profile_no_ads_card")
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("🛡️ ", fontSize = 16.sp)
+                        Text(
+                            text = "GARANCE: 100% BEZ REKLAM (AD-FREE)",
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF00FFC2),
+                            fontSize = 12.sp
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = "Spark Studio je a navždy zůstane kompletně bez reklam. Neobsahuje žádné bannery, automaticky vyskakující videoreklamy ani skryté sledovací skripty třetích stran. Projekt je financován pouze z dobrovolných nákupů tvůrčích kreditů. Můžete tvořit bez jakéhokoliv vyrušování!",
+                        color = Color.LightGray,
+                        fontSize = 11.sp,
+                        lineHeight = 15.sp
+                    )
+                }
+            }
         }
 
         item {
@@ -6326,14 +6664,6 @@ fun LegalAndProfileTab(
         }
 
         item {
-            var apiKeyInput by remember { mutableStateOf(com.example.data.network.GeminiClient.customApiKey) }
-            var isSavedSuccessfully by remember { mutableStateOf(false) }
-            var passwordVisible by remember { mutableStateOf(false) }
-            var isTestingConnection by remember { mutableStateOf(false) }
-            var testResult by remember { mutableStateOf<String?>(null) }
-            var isTestSuccess by remember { mutableStateOf<Boolean?>(null) }
-            val coroutineScope = rememberCoroutineScope()
-
             Card(
                 colors = CardDefaults.cardColors(containerColor = CardBackground),
                 border = BorderStroke(1.dp, Color(0xFF2E1A5E)),
@@ -6347,36 +6677,22 @@ fun LegalAndProfileTab(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = "INTEGRACE GEMINI API ⚡",
+                            text = "SPARK CLOUD INTELLECT ⚡",
                             fontWeight = FontWeight.Bold,
                             color = AccentNeonCyan,
                             fontSize = 12.sp
                         )
 
-                        // Dynamic visual connection status indicator
-                        val currentActiveKey = com.example.data.network.GeminiClient.customApiKey
-                        val hasKey = currentActiveKey.isNotBlank()
-                        val isConfiguredKeyMatch = apiKeyInput.trim() == currentActiveKey.trim()
-
-                        val (statusText, statusColor, statusBg) = when {
-                            isTestingConnection -> Triple("OVĚŘOVÁNÍ...", AccentNeonCyan, Color(0xFF131D24))
-                            isTestSuccess == true -> Triple("🟢 PŘIPOJENO", Color(0xFF00FFC2), Color(0xFF0C2417))
-                            isTestSuccess == false -> Triple("🔴 CHYBA SPOJENÍ", Color(0xFFFF5252), Color(0xFF240C12))
-                            !isConfiguredKeyMatch -> Triple("🟡 NEULOŽENÉ ZMĚNY", Color(0xFFFFCC00), Color(0xFF2B220B))
-                            hasKey -> Triple("🟢 PŘIPOJENO (ULOŽENO)", Color(0xFF00FFC2), Color(0xFF0C2417))
-                            else -> Triple("⚪ NEAKTIVNÍ", Color.Gray, Color(0xFF181524))
-                        }
-
                         Box(
                             modifier = Modifier
                                 .clip(RoundedCornerShape(4.dp))
-                                .background(statusBg)
-                                .border(0.5.dp, statusColor.copy(alpha = 0.5f), RoundedCornerShape(4.dp))
+                                .background(Color(0xFF0C2417))
+                                .border(0.5.dp, Color(0xFF00FFC2).copy(alpha = 0.5f), RoundedCornerShape(4.dp))
                                 .padding(horizontal = 6.dp, vertical = 2.dp)
                         ) {
                             Text(
-                                text = statusText,
-                                color = statusColor,
+                                text = "🟢 AKTIVNÍ / PREMIUM",
+                                color = Color(0xFF00FFC2),
                                 fontSize = 9.sp,
                                 fontWeight = FontWeight.Bold
                             )
@@ -6384,175 +6700,11 @@ fun LegalAndProfileTab(
                     }
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        text = "Vložte sem svůj tajný Gemini API klíč pro okamžité generování textů, analýzu hudby a vizuálů přímo přes servery Google AI v reálném čase. Bez klíče aplikace automaticky běží v kreativním offline režimu.",
+                        text = "Služby umělé inteligence Gemini AI jsou plně integrovány do jádra aplikace Spark Studio. Jako skladatel amatér nemusíte nic složitě konfigurovat, zakládat účty ani vkládat tajné API klíče. Generování textů, analýza nálady skladeb i vizuální doprovod fungují ihned, bezpečně a automaticky přes naše vysoce rychlé cloudové rozhraní.",
                         color = Color.LightGray,
                         fontSize = 11.sp,
                         lineHeight = 15.sp
                     )
-                    Spacer(modifier = Modifier.height(12.dp))
-
-                    OutlinedTextField(
-                        value = apiKeyInput,
-                        onValueChange = { 
-                            apiKeyInput = it
-                            isSavedSuccessfully = false
-                            testResult = null
-                            isTestSuccess = null
-                        },
-                        placeholder = { Text("AIzaSy...", color = Color.Gray, fontSize = 12.sp) },
-                        singleLine = true,
-                        visualTransformation = if (passwordVisible) androidx.compose.ui.text.input.VisualTransformation.None else androidx.compose.ui.text.input.PasswordVisualTransformation(),
-                        trailingIcon = {
-                            IconButton(onClick = { passwordVisible = !passwordVisible }) {
-                                Icon(
-                                    imageVector = if (passwordVisible) Icons.Default.Edit else Icons.Default.Lock,
-                                    contentDescription = if (passwordVisible) "Skrýt" else "Zobrazit",
-                                    tint = AccentNeonCyan
-                                )
-                            }
-                        },
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedTextColor = Color.White,
-                            unfocusedTextColor = Color.White,
-                            focusedBorderColor = AccentNeonCyan,
-                            unfocusedBorderColor = Color(0xFF251A4D)
-                        ),
-                        modifier = Modifier.fillMaxWidth().testTag("profile_gemini_api_key_field")
-                    )
-
-                    Spacer(modifier = Modifier.height(10.dp))
-
-                    if (testResult != null) {
-                        Card(
-                            colors = CardDefaults.cardColors(
-                                containerColor = if (isTestSuccess == true) Color(0xFF0C2417) else Color(0xFF240C12)
-                            ),
-                            border = BorderStroke(1.dp, if (isTestSuccess == true) Color(0xFF00FFC2) else Color(0xFFFF5252)),
-                            shape = RoundedCornerShape(10.dp),
-                            modifier = Modifier.fillMaxWidth().padding(bottom = 10.dp)
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(10.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                Text(
-                                    text = if (isTestSuccess == true) "✅" else "❌",
-                                    fontSize = 16.sp
-                                )
-                                Text(
-                                    text = testResult ?: "",
-                                    color = Color.White,
-                                    fontSize = 11.sp,
-                                    lineHeight = 14.sp,
-                                    modifier = Modifier.weight(1f)
-                                )
-                            }
-                        }
-                    }
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        Button(
-                            onClick = {
-                                if (apiKeyInput.trim().isBlank()) {
-                                    Toast.makeText(context, "Nejprve zadejte API klíč pro uložení", Toast.LENGTH_SHORT).show()
-                                    return@Button
-                                }
-                                isTestingConnection = true
-                                testResult = "Právě se připojuji k API serverům pro uložení a ověření..."
-                                isTestSuccess = null
-                                coroutineScope.launch {
-                                    try {
-                                        val originalKey = com.example.data.network.GeminiClient.customApiKey
-                                        com.example.data.network.GeminiClient.customApiKey = apiKeyInput.trim()
-                                        val response = com.example.data.network.GeminiClient.generateText(
-                                            "Zkontroluj toto spojení. Odpověz pouze jediným slovem: 'OK'."
-                                        )
-                                        isTestingConnection = false
-                                        if (response.contains("OK", ignoreCase = true) || response.isNotBlank()) {
-                                            isTestSuccess = true
-                                            testResult = "Klíč byl úspěšně uložen a ověřen! Spojení se servery Google Gemini funguje bezchybně. 🎉"
-                                            val p = context.getSharedPreferences("spark_settings", android.content.Context.MODE_PRIVATE)
-                                            p.edit().putString("gemini_key", apiKeyInput.trim()).apply()
-                                            isSavedSuccessfully = true
-                                        } else {
-                                            isTestSuccess = false
-                                            testResult = "Klíč byl uložen, ale vrátil neočekávanou odpověď."
-                                            val p = context.getSharedPreferences("spark_settings", android.content.Context.MODE_PRIVATE)
-                                            p.edit().putString("gemini_key", apiKeyInput.trim()).apply()
-                                            isSavedSuccessfully = true
-                                        }
-                                    } catch (e: Exception) {
-                                        isTestingConnection = false
-                                        isTestSuccess = false
-                                        testResult = "Klíč byl uložen, avšak spojení selhalo: ${e.message}"
-                                        val p = context.getSharedPreferences("spark_settings", android.content.Context.MODE_PRIVATE)
-                                        p.edit().putString("gemini_key", apiKeyInput.trim()).apply()
-                                        isSavedSuccessfully = true
-                                    }
-                                }
-                            },
-                            colors = ButtonDefaults.buttonColors(containerColor = if (isSavedSuccessfully) Color(0xFF00C750) else AccentNeonCyan),
-                            enabled = !isTestingConnection,
-                            modifier = Modifier.weight(1f).testTag("profile_save_api_key_btn")
-                        ) {
-                            Text(
-                                text = if (isSavedSuccessfully && isTestSuccess == true) "ULOŽENO A OK! ✅" else "ULOŽIT A OVĚŘIT 💾",
-                                color = Color.Black,
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 11.sp
-                            )
-                        }
-
-                        Button(
-                            onClick = {
-                                if (apiKeyInput.trim().isBlank()) {
-                                    Toast.makeText(context, "Nejprve zadejte API klíč", Toast.LENGTH_SHORT).show()
-                                    return@Button
-                                }
-                                isTestingConnection = true
-                                testResult = "Zkouším spojení s Google Gemini API..."
-                                isTestSuccess = null
-                                coroutineScope.launch {
-                                    try {
-                                        val originalKey = com.example.data.network.GeminiClient.customApiKey
-                                        com.example.data.network.GeminiClient.customApiKey = apiKeyInput.trim()
-                                        val response = com.example.data.network.GeminiClient.generateText(
-                                            "Zkontroluj toto spojení. Odpověz pouze jediným slovem: 'OK'."
-                                        )
-                                        isTestingConnection = false
-                                        if (response.contains("OK", ignoreCase = true) || response.isNotBlank()) {
-                                            isTestSuccess = true
-                                            testResult = "Zkouška úspěšná! Spojení funguje. 🎉 Odpověď: $response"
-                                            val p = context.getSharedPreferences("spark_settings", android.content.Context.MODE_PRIVATE)
-                                            p.edit().putString("gemini_key", apiKeyInput.trim()).apply()
-                                            isSavedSuccessfully = true
-                                        } else {
-                                            isTestSuccess = false
-                                            testResult = "Klíč nevrátil správný tvar odpovědi."
-                                            com.example.data.network.GeminiClient.customApiKey = originalKey
-                                        }
-                                    } catch (e: Exception) {
-                                        isTestingConnection = false
-                                        isTestSuccess = false
-                                        testResult = "Chyba testu: ${e.message}"
-                                    }
-                                }
-                            },
-                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF261D45)),
-                            enabled = !isTestingConnection,
-                            modifier = Modifier.weight(1f).border(1.dp, Color(0xFF32245C), RoundedCornerShape(100)).testTag("profile_test_api_key_btn")
-                        ) {
-                            if (isTestingConnection) {
-                                CircularProgressIndicator(modifier = Modifier.size(12.dp), strokeWidth = 1.5.dp, color = AccentNeonCyan)
-                            } else {
-                                Text("TEST SPOJENÍ 🔍", color = AccentNeonCyan, fontWeight = FontWeight.Bold, fontSize = 11.sp)
-                            }
-                        }
-                    }
                 }
             }
         }
@@ -6605,7 +6757,7 @@ fun LegalAndProfileTab(
                         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF251D42)),
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        Text("OTEVŘÍT DENULI WEB 🌐", color = AccentNeonCyan, fontWeight = FontWeight.Bold)
+                        Text("OTEVŘÍT WEB SPARK STUDIO 🌐", color = AccentNeonCyan, fontWeight = FontWeight.Bold)
                     }
                 }
             }
