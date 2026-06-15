@@ -410,7 +410,10 @@ fun InteractiveTimeline(
                                             onDragStart = { isDraggingTrackId = track.trackId },
                                             onDragEnd = {
                                                 isDraggingTrackId = null
-                                                viewModel.updateTrackStartOffset(track, draggingTempOffsets[track.trackId] ?: track.startOffsetMs)
+                                                val rawOffset = draggingTempOffsets[track.trackId] ?: track.startOffsetMs
+                                                val snapInterval = 250L // 250 ms snapping interval for precise grid lock
+                                                val snappedOffset = ((rawOffset + snapInterval / 2) / snapInterval) * snapInterval
+                                                viewModel.updateTrackStartOffset(track, snappedOffset)
                                             },
                                             onDragCancel = { isDraggingTrackId = null },
                                             onDrag = { change, dragAmount ->

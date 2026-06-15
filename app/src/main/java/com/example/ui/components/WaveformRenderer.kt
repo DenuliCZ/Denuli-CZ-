@@ -88,7 +88,7 @@ fun WaveformRenderer(
                     colors = if (isMuted) {
                         listOf(Color(0xFF8E8CA4), Color(0xFF5D5870))
                     } else {
-                        listOf(activeColor.copy(alpha = 0.85f), activeColor)
+                        listOf(Color(0xFF00FFCC), Color(0xFF8B47FA)) // Cyan to Purple premium gradient
                     }
                 )
 
@@ -103,18 +103,22 @@ fun WaveformRenderer(
                     // Check if this bar has been passed by the track playProgress index
                     val isPast = (i.toFloat() / barCount) <= playProgress
 
-                    val currentColor = if (isPast) {
-                        if (isMuted) Color(0xFF8E8CA4) else activeColor
+                    if (isPast) {
+                        drawRoundRect(
+                            brush = activeBrush,
+                            topLeft = Offset(xOffset, yOffset),
+                            size = Size(barWidth, barHeight),
+                            cornerRadius = CornerRadius(barWidth / 2f, barWidth / 2f),
+                            alpha = animatedPeak.coerceIn(0.35f, 1.0f) // Opacity modulated by volume/peak amplitude
+                        )
                     } else {
-                        inactiveColor.copy(alpha = 0.7f)
+                        drawRoundRect(
+                            color = inactiveColor.copy(alpha = 0.4f),
+                            topLeft = Offset(xOffset, yOffset),
+                            size = Size(barWidth, barHeight),
+                            cornerRadius = CornerRadius(barWidth / 2f, barWidth / 2f)
+                        )
                     }
-
-                    drawRoundRect(
-                        color = currentColor,
-                        topLeft = Offset(xOffset, yOffset),
-                        size = Size(barWidth, barHeight),
-                        cornerRadius = CornerRadius(barWidth / 2f, barWidth / 2f)
-                    )
                 }
             }
         }

@@ -59,12 +59,17 @@ object GeminiClient {
     private const val BASE_URL = "https://generativelanguage.googleapis.com/"
 
     private val okHttpClient = OkHttpClient.Builder()
-        .connectTimeout(60, TimeUnit.SECONDS)
-        .readTimeout(60, TimeUnit.SECONDS)
-        .writeTimeout(60, TimeUnit.SECONDS)
+        .connectTimeout(30, TimeUnit.SECONDS)
+        .readTimeout(30, TimeUnit.SECONDS)
+        .writeTimeout(30, TimeUnit.SECONDS)
         .addInterceptor(HttpLoggingInterceptor().apply {
-            level = HttpLoggingInterceptor.Level.BODY
+            level = if (com.studiodenuli.spark.BuildConfig.DEBUG) {
+                HttpLoggingInterceptor.Level.BODY
+            } else {
+                HttpLoggingInterceptor.Level.NONE
+            }
         })
+        .retryOnConnectionFailure(true)
         .build()
 
     private val apiService: GeminiApiService by lazy {
@@ -116,6 +121,12 @@ object GeminiClient {
                 val response = apiService.generateContent(modelName, apiKey, request)
                 val textResponse = response.candidates?.firstOrNull()?.content?.parts?.firstOrNull()?.text
                 if (textResponse != null) {
+                    if (textResponse.isBlank()) {
+                        throw IllegalStateException("Empty Gemini response")
+                    }
+                    if (textResponse.length < 10) {
+                        throw IllegalStateException("Suspiciously short response")
+                    }
                     return textResponse
                 }
             } catch (e: Exception) {
