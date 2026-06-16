@@ -31,9 +31,8 @@ object LegalTexts {
         * Hlasové nahrávky a vokály: Audio data nahraná přes mikrofon uživatele, která slouží pro mixážní pult.
         * Upozornění: Všechny AI prompty a požadavky jsou zpracovávány bezpečně a šifrovaně přes oficiální HTTPS API Google Gemini a integrované cloudové služby. Nejsou využívány pro trénování veřejných modelů bez Vašeho výslovného souhlasu.
 
-        D. Transakční a herní data (Kredity a Tržiště)
-        * Zůstatek kreditů (Spark Coins): Virtuální měna ukládaná lokálně (Shared Preferences) a v bezpečné herní databázi (Room DB).
-        * Nákupní historie: Seznam zakoupených instrumentů, beatů nebo licencí děl jiných uživatelů na komunitním tržišti (Marketplace).
+        D. Licenční a balíčková data (Tržiště a Balíčky)
+        * Historie aktivací: Seznam odemčených instrumentů, beatů nebo projektů jiných uživatelů na komunitním tržišti (Marketplace) v rámci bezplatného startovacího balíčku (Starter Pack).
 
         ---
 
@@ -108,9 +107,9 @@ object LegalTexts {
 
         ---
 
-        5. VIRTUÁLNÍ MĚNA (SPARK COINS / KREDITY)
-        Aplikace využívá vnitřní herní a bodový systém vyjádřený v kreditech (Spark Mince / Spark Coins 🪙).
-        * Kredity slouží k interní barterové a autorské výměně děl v rámci uzavřené simulované komunity Spark Studio. Kredity nemají reálnou peněžní hodnotu a nelze požadovat jejich vyplacení či směnu za reálné měny. Realizace skutečných finančních nákupů neexkluzivních licencí probíhá odděleně formou přímých bankovních převodů autorům v sekci distribuce.
+        5. BEZPLATNÝ STARTOVACÍ BALÍČEK (FREE STARTER PACK)
+        Aplikace v této verzi využívá stoprocentně bezplatný distribuční systém, ve kterém jsou všechny instrumenty, audio šablony a komunitní doplňky poskytovány zdarma v rámci startovacího uvítacího balíčku (Starter Bundle).
+        * Všechny funkce a doplňky jsou odemčeny bez jakýchkoliv poplatků, simulovaných kreditů či nákupních bodů. Uživatel může jakékoli efekty či template stáhnout a zařadit do své tvorby jedním kliknutím a bez transakcí.
 
         ---
 

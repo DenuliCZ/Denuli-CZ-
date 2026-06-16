@@ -198,23 +198,18 @@ fun SparkStudioApp(
             Row(
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Glow Spark Coins balance Display
+                // Compliant PRO Starter Edition plan badge instead of simulated coin wallet
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier
                         .clip(RoundedCornerShape(10.dp))
-                        .background(Color(0xFF261D45))
-                        .border(1.dp, Color(0xFF3B2D6B), RoundedCornerShape(10.dp))
+                        .background(Color(0xFF1E133B))
+                        .border(1.dp, Color(0xFF8B47FA), RoundedCornerShape(10.dp))
                         .padding(horizontal = 10.dp, vertical = 6.dp)
                 ) {
                     Text(
-                        text = "🪙",
-                        fontSize = 14.sp
-                    )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text(
-                        text = "$userCredits",
-                        fontSize = 13.sp,
+                        text = "⚡ PRO ACTIVE",
+                        fontSize = 11.sp,
                         fontWeight = FontWeight.Bold,
                         color = AccentNeonCyan
                     )
@@ -6193,7 +6188,7 @@ fun MarketplaceTab(
                                 Text(item.description, color = Color.Gray, fontSize = 12.sp)
                                 Spacer(modifier = Modifier.height(4.dp))
                                 Text(
-                                    text = "${TranslationUtility.get("price")} ${item.price.toInt()} 🪙",
+                                    text = "Zdarma (Starter Pack) ⚡",
                                     color = AccentNeonCyan,
                                     fontSize = 13.sp,
                                     fontWeight = FontWeight.Bold
@@ -6211,7 +6206,7 @@ fun MarketplaceTab(
                                 modifier = Modifier.testTag("buy_item_${item.id}")
                             ) {
                                 Text(
-                                    text = if (item.isPurchased) TranslationUtility.get("purchased") else TranslationUtility.get("buy"),
+                                    text = if (item.isPurchased) TranslationUtility.get("purchased") else "Odemknout",
                                     fontWeight = FontWeight.Bold,
                                     fontSize = 12.sp
                                 )
@@ -6365,21 +6360,21 @@ fun PublishProjectDialog(
                     modifier = Modifier.fillMaxWidth().testTag("publish_tags_input")
                 )
 
-                OutlinedTextField(
-                    value = priceInput,
-                    onValueChange = { priceInput = it.filter { char -> char.isDigit() } },
-                    label = { Text("Prodejní cena v kreditech (M3 mince) 🪙") },
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = AccentNeonCyan,
-                        unfocusedBorderColor = Color(0xFF261D45),
-                        focusedTextColor = Color.White,
-                        unfocusedTextColor = Color.White,
-                        focusedLabelColor = AccentNeonCyan,
-                        unfocusedLabelColor = Color.Gray
-                    ),
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth().testTag("publish_price_input")
-                )
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(Color(0xFF13092A))
+                        .border(1.dp, Color(0xFF23144C), RoundedCornerShape(10.dp))
+                        .padding(12.dp)
+                ) {
+                    Text(
+                        text = "📢 Komunitní sdílení: Publikace je zcela bezplatná a přístupná pro všechny uživatele bez poplatků.",
+                        color = AccentNeonCyan,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
             }
         },
         dismissButton = {
@@ -6394,7 +6389,7 @@ fun PublishProjectDialog(
                         Toast.makeText(context, "Název skladby nesmí být prázdný!", Toast.LENGTH_SHORT).show()
                         return@Button
                     }
-                    val targetPrice = priceInput.toIntOrNull() ?: 0
+                    val targetPrice = 0
                     viewModel.publishProjectToCommunity(
                         context = context,
                         tracks = activeTracks,

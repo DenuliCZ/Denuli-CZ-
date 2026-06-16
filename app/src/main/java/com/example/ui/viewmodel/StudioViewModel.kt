@@ -313,15 +313,15 @@ class StudioViewModel(private val repository: StudioRepository) : ViewModel() {
             repository.allMarketplaceItems.first().let { current ->
                 if (current.isEmpty()) {
                     val defaultPacks = listOf(
-                        MarketplaceItem("beat_synthwave", "Retro Synthwave Beat", "Autentický analogový základ z 80. let (110 BPM)", 100.0, false, "Beat", 30),
-                        MarketplaceItem("beat_lofi", "Cozy Lo-Fi Study Chords", "Jemné, tlumené jazzové harmonie na klavír v retro šumu", 80.0, false, "Beat", 35),
-                        MarketplaceItem("beat_metal", "Brutal Metal Double-Kick", "Bleskové bicí, extrémní zkreslení kytar a agresivní tempo (140 BPM)", 100.0, false, "Beat", 35),
-                        MarketplaceItem("beat_edm", "Apex EDM Festival Drop", "Mohutné detuned supersaw syntezátory a pumpující klubový rytmus (128 BPM)", 90.0, false, "Beat", 40),
-                        MarketplaceItem("beat_country", "Texas Cabin Country Acoustic", "Vybrnkávání kytary, klidný rytmus a walking doprovod kontrabasu (90 BPM)", 80.0, false, "Beat", 35),
-                        MarketplaceItem("effect_daft", "Robot Vocoder Preset", "Přemění hlas do ikonické robotické formy ve stylu Daft Punk", 60.0, false, "Vocal Effect", 0),
-                        MarketplaceItem("effect_autotune", "Hyper-Tune Pro Filter", "Ultramoderní automatické rovnání tónů pro rap a pop", 90.0, false, "Vocal Effect", 0),
-                        MarketplaceItem("ambience_cyberpunk", "Cyber Neon Rain", "Přírodní déšť protkaný ozvěnou dálnic a neonových svitů", 50.0, false, "Ambience", 45),
-                        MarketplaceItem("ambience_zen", "Sacred Zen Garden", "Zvuky proudící čisté vody, bambusových zvonkoher a hluboké ticho", 50.0, false, "Ambience", 60)
+                        MarketplaceItem("beat_synthwave", "Retro Synthwave Beat", "Autentický analogový základ z 80. let (110 BPM)", 0.0, false, "Beat", 30),
+                        MarketplaceItem("beat_lofi", "Cozy Lo-Fi Study Chords", "Jemné, tlumené jazzové harmonie na klavír v retro šumu", 0.0, false, "Beat", 35),
+                        MarketplaceItem("beat_metal", "Brutal Metal Double-Kick", "Bleskové bicí, extrémní zkreslení kytar a agresivní tempo (140 BPM)", 0.0, false, "Beat", 35),
+                        MarketplaceItem("beat_edm", "Apex EDM Festival Drop", "Mohutné detuned supersaw syntezátory a pumpující klubový rytmus (128 BPM)", 0.0, false, "Beat", 40),
+                        MarketplaceItem("beat_country", "Texas Cabin Country Acoustic", "Vybrnkávání kytary, klidný rytmus a walking doprovod kontrabasu (90 BPM)", 0.0, false, "Beat", 35),
+                        MarketplaceItem("effect_daft", "Robot Vocoder Preset", "Přemění hlas do ikonické robotické formy ve stylu Daft Punk", 0.0, false, "Vocal Effect", 0),
+                        MarketplaceItem("effect_autotune", "Hyper-Tune Pro Filter", "Ultramoderní automatické rovnání tónů pro rap a pop", 0.0, false, "Vocal Effect", 0),
+                        MarketplaceItem("ambience_cyberpunk", "Cyber Neon Rain", "Přírodní déšť protkaný ozvěnou dálnic a neonových svitů", 0.0, false, "Ambience", 45),
+                        MarketplaceItem("ambience_zen", "Sacred Zen Garden", "Zvuky proudící čisté vody, bambusových zvonkoher a hluboké ticho", 0.0, false, "Ambience", 60)
                     )
                     repository.prepopulateMarketplace(defaultPacks)
                 }
@@ -1000,16 +1000,9 @@ class StudioViewModel(private val repository: StudioRepository) : ViewModel() {
     }
 
     fun buyMarketplaceAsset(context: Context, item: MarketplaceItem) {
-        val cost = item.price.toInt()
-        if (_userCredits.value < cost) {
-            Toast.makeText(context, "Nemáte dostatek kreditů! (Potřebujete: $cost 🪙, Máte: ${_userCredits.value} 🪙)", Toast.LENGTH_LONG).show()
-            return
-        }
         viewModelScope.launch {
             repository.purchaseItem(item)
-            val newCredits = _userCredits.value - cost
-            updateUserCredits(context, newCredits)
-            Toast.makeText(context, "${item.name} byl úspěšně zakoupen za $cost kreditů! Zůstatek: $newCredits 🪙", Toast.LENGTH_LONG).show()
+            Toast.makeText(context, "${item.name} byl úspěšně odemčen a přidán do vašeho studia! ⚡", Toast.LENGTH_LONG).show()
         }
     }
 
@@ -1777,20 +1770,16 @@ class StudioViewModel(private val repository: StudioRepository) : ViewModel() {
                 kotlinx.coroutines.delay(300)
 
                 withContext(Dispatchers.Main) {
-                    Toast.makeText(context, "Skladba byla úspěšně vykreslena a nahrána na komunitní trh za $price kreditů! 🚀🌍", Toast.LENGTH_LONG).show()
+                    Toast.makeText(context, "Skladba byla úspěšně vykreslena a zveřejněna v komunitním feedu! 🚀🌍", Toast.LENGTH_LONG).show()
                     onFinished(true)
                 }
 
-                // --- VIRTUAL COMMERCE LOOP (Simulated buyers purchase after a brief delay) ---
-                if (price > 0) {
-                    viewModelScope.launch {
-                        kotlinx.coroutines.delay(10000)
-                        val virtualBuyers = listOf("Marek_EDM", "Denisa_Singer", "Vojta_Vibe", "SparkFan99", "AuraSound")
-                        val selectedBuyer = virtualBuyers.random()
-                        val newBalance = _userCredits.value + price
-                        updateUserCredits(context, newBalance)
-                        _communitySalesAlert.value = "🎉 Skladba prodána! Uživatel $selectedBuyer zakoupil tvou skladbu '$customTitle' za $price kreditů. Zůstatek zvýšen na $newBalance 🪙!"
-                    }
+                // Simple feedback alert without coin incentive
+                viewModelScope.launch {
+                    kotlinx.coroutines.delay(10000)
+                    val playlistCurators = listOf("Marek_EDM", "Denisa_Singer", "Vojta_Vibe", "SparkFan99", "AuraSound")
+                    val selectedCurator = playlistCurators.random()
+                    _communitySalesAlert.value = "🎉 Nové přehrání! Uživatel $selectedCurator právě objevil tvou skladbu '$customTitle' a přidal si ji do svého playlistu!"
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "Error publishing to community: ${e.message}")
